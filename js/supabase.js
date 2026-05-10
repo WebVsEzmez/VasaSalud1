@@ -1,20 +1,26 @@
 // === SUPABASE CLIENT ===
+// Usa el UMD bundle cargado via <script> en index.html (window.supabase)
 
-// Load Supabase from CDN via dynamic import
 let _supabase = null;
 
 async function initSupabase() {
   if (_supabase) return _supabase;
 
-  // Load supabase-js from CDN
-  const { createClient } = await import('https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm');
-  _supabase = createClient(VASA_CONFIG.supabase.url, VASA_CONFIG.supabase.anonKey, {
-    auth: {
-      persistSession: true,
-      autoRefreshToken: true,
-      detectSessionInUrl: true
+  if (!window.supabase) {
+    throw new Error('Supabase SDK no cargado. Verificá tu conexión a internet.');
+  }
+
+  _supabase = window.supabase.createClient(
+    VASA_CONFIG.supabase.url,
+    VASA_CONFIG.supabase.anonKey,
+    {
+      auth: {
+        persistSession: true,
+        autoRefreshToken: true,
+        detectSessionInUrl: true
+      }
     }
-  });
+  );
   return _supabase;
 }
 
