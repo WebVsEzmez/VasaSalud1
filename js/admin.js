@@ -164,8 +164,8 @@ function confirmarNotificacion(requestId, patientName, requestType, fileUrl) {
 
 async function enviarNotificacion(requestId, fileUrl, requestType) {
   const mensajes = {
-    receta: 'En 24 horas tu receta estará disponible para retirar por el Servicio Médico.',
-    orden: 'En 24 horas tu orden médica estará disponible para retirar por el Servicio Médico.',
+    receta: 'Tu receta ya está disponible para retirar por el Servicio Médico.',
+    orden: 'Tu orden médica ya está disponible para retirar por el Servicio Médico.',
     transcripcion: 'Tu transcripción fue recibida y procesada correctamente. Pasate por el Servicio Médico.'
   };
   const mensaje = mensajes[requestType] || 'Tu solicitud fue procesada. Pasate por el Servicio Médico.';
