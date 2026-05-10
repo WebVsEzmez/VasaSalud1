@@ -53,14 +53,42 @@ function adminRequestCardHTML(r) {
   }[r.type] || '';
 
   let detailText = '';
-  if (r.type === 'receta') detailText = `<b>Fármaco:</b> ${details.farmaco || '—'}${details.para ? ` | <b>Para:</b> ${details.para}` : ''}${details.dosis ? ` | <b>Dosis:</b> ${details.dosis}` : ''}${details.cantidad ? ` | <b>Cantidad:</b> ${details.cantidad}` : ''}`;
-  if (r.type === 'orden') detailText = `<b>Detalle:</b> ${details.detalle || '—'}${details.observaciones ? `<br><b>Obs:</b> ${details.observaciones}` : ''}`;
+  let imageHTML = '';
+
+  if (r.type === 'receta') {
+    detailText = `<b>Fármaco:</b> ${details.farmaco || '—'}${details.para ? ` | <b>Para:</b> ${details.para}` : ''}`;
+  }
+  if (r.type === 'orden') {
+    detailText = `<b>Detalle:</b> ${details.detalle || '—'}`;
+  }
   if (r.type === 'transcripcion') {
-    detailText = details.observaciones ? `<b>Obs:</b> ${details.observaciones}` : 'Sin observaciones';
+    detailText = details.observaciones ? `<b>Obs:</b> ${details.observaciones}` : '';
     if (details.file_url && details.file_url !== '[archivo adjunto]') {
-      detailText += `<br><a href="${details.file_url}" target="_blank" rel="noopener" style="color:var(--teal);font-weight:600">Ver imagen adjunta →</a>`;
+      const escapedUrl = details.file_url.replace(/'/g, '%27');
+      imageHTML = `
+        <div class="trans-img-wrap">
+          <img src="${details.file_url}" alt="Transcripción" class="trans-img"
+            onclick="abrirImagenModal('${escapedUrl}')"
+            onerror="this.parentElement.innerHTML='<div class=trans-img-error>❌ Imagen no disponible</div>'" />
+          <div class="trans-img-overlay" onclick="abrirImagenModal('${escapedUrl}')">
+            <svg viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z" fill="currentColor"/></svg>
+            Ver en grande
+          </div>
+        </div>`;
+    } else {
+      imageHTML = `<div class="trans-img-error">📎 Sin imagen adjunta</div>`;
     }
   }
+
+  const fileUrlEscaped = (details.file_url && details.file_url !== '[archivo adjunto]')
+    ? details.file_url.replace(/'/g, '%27') : '';
+
+  const rctaBtn = r.type !== 'transcripcion' ? `
+    <a href="https://app.rcta.me/Login" target="_blank" rel="noopener noreferrer" class="btn btn-sm"
+      style="background:linear-gradient(135deg,#6c3fc5,#8b5cf6);color:white;box-shadow:0 4px 14px rgba(108,63,197,0.35);text-decoration:none">
+      <svg viewBox="0 0 24 24" style="width:15px;height:15px"><path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-7 3c1.93 0 3.5 1.57 3.5 3.5S13.93 13 12 13s-3.5-1.57-3.5-3.5S10.07 6 12 6zm7 13H5v-.23c0-.62.28-1.2.76-1.58C7.47 15.82 9.64 15 12 15s4.53.82 6.24 2.19c.48.38.76.97.76 1.58V19z" fill="currentColor"/></svg>
+      RCTA
+    </a>` : '';
 
   return `
     <div class="request-card">
@@ -72,15 +100,12 @@ function adminRequestCardHTML(r) {
         <div style="font-weight:700;font-size:15px">${profile.full_name || 'Paciente'}</div>
         <div style="font-size:12px;color:var(--gray-500)">DNI: ${profile.dni || '—'} · ${profile.email || '—'}</div>
       </div>
-      <div class="request-info">${detailText}</div>
+      ${detailText ? `<div class="request-info">${detailText}</div>` : ''}
+      ${imageHTML}
       <div class="request-date mt-12">${formatDateTime(r.created_at)}</div>
       <div style="display:flex;align-items:center;justify-content:space-between;margin-top:12px;flex-wrap:wrap;gap:8px">
-        <a href="https://app.rcta.me/Login" target="_blank" rel="noopener noreferrer" class="btn btn-sm"
-          style="background:linear-gradient(135deg,#6c3fc5,#8b5cf6);color:white;box-shadow:0 4px 14px rgba(108,63,197,0.35);text-decoration:none">
-          <svg viewBox="0 0 24 24" style="width:15px;height:15px"><path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-7 3c1.93 0 3.5 1.57 3.5 3.5S13.93 13 12 13s-3.5-1.57-3.5-3.5S10.07 6 12 6zm7 13H5v-.23c0-.62.28-1.2.76-1.58C7.47 15.82 9.64 15 12 15s4.53.82 6.24 2.19c.48.38.76.97.76 1.58V19z" fill="currentColor"/></svg>
-          RCTA
-        </a>
-        <button class="btn btn-success btn-sm" onclick="confirmarNotificacion('${r.id}', '${(profile.full_name || '').replace(/'/g, '')}', '${r.type}')">
+        ${rctaBtn}
+        <button class="btn btn-success btn-sm" onclick="confirmarNotificacion('${r.id}', '${(profile.full_name || '').replace(/'/g, '')}', '${r.type}', '${fileUrlEscaped}')">
           <svg viewBox="0 0 24 24" style="width:15px;height:15px"><path d="M18 16.08c-.76 0-1.44.3-1.96.77L8.91 12.7c.05-.23.09-.46.09-.7s-.04-.47-.09-.7l7.05-4.11c.54.5 1.25.81 2.04.81 1.66 0 3-1.34 3-3s-1.34-3-3-3-3 1.34-3 3c0 .24.04.47.09.7L8.04 9.81C7.5 9.31 6.79 9 6 9c-1.66 0-3 1.34-3 3s1.34 3 3 3c.79 0 1.5-.31 2.04-.81l7.12 4.16c-.05.21-.08.43-.08.65 0 1.61 1.31 2.92 2.92 2.92 1.61 0 2.92-1.31 2.92-2.92s-1.31-2.92-2.92-2.92z" fill="currentColor"/></svg>
           Notificar
         </button>
@@ -89,13 +114,23 @@ function adminRequestCardHTML(r) {
   `;
 }
 
-// Confirmación antes de notificar
-function confirmarNotificacion(requestId, patientName, requestType) {
-  const tipoTexto = {
-    receta: 'receta',
-    orden: 'orden médica',
-    transcripcion: 'transcripción'
-  }[requestType] || 'solicitud';
+function abrirImagenModal(url) {
+  const decodedUrl = decodeURIComponent(url);
+  openModal(`
+    <h2 class="modal-title">📸 Transcripción de Receta</h2>
+    <div style="margin-top:12px;border-radius:12px;overflow:hidden;background:#111;text-align:center">
+      <img src="${decodedUrl}" style="width:100%;max-height:65vh;object-fit:contain;display:block" />
+    </div>
+    <a href="${decodedUrl}" target="_blank" rel="noopener" class="btn btn-outline btn-full mt-12">
+      <svg viewBox="0 0 24 24"><path d="M19 19H5V5h7V3H5a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7h-2v7zM14 3v2h3.59l-9.83 9.83 1.41 1.41L19 6.41V10h2V3h-7z" fill="currentColor"/></svg>
+      Abrir imagen original
+    </a>
+  `);
+}
+
+function confirmarNotificacion(requestId, patientName, requestType, fileUrl) {
+  const tipoTexto = { receta: 'receta', orden: 'orden médica', transcripcion: 'transcripción' }[requestType] || 'solicitud';
+  const esTranscripcion = requestType === 'transcripcion';
 
   openModal(`
     <div style="text-align:center;padding:8px 0 16px">
@@ -103,19 +138,22 @@ function confirmarNotificacion(requestId, patientName, requestType) {
         <svg viewBox="0 0 24 24" style="width:32px;height:32px;color:#d68910"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-2h2v2zm0-4h-2V7h2v6z" fill="currentColor"/></svg>
       </div>
       <h2 class="modal-title" style="text-align:center">¿Confirmar notificación?</h2>
-      <p style="font-size:14px;color:var(--gray-500);margin:8px 0 4px">Vas a notificar a <b>${patientName}</b> que su</p>
-      <p style="font-size:14px;color:var(--gray-500);margin-bottom:20px"><b>${tipoTexto} ya está lista para retirar.</b></p>
-      <div style="background:var(--orange-light);border-radius:10px;padding:12px 16px;margin-bottom:20px;text-align:left">
-        <div style="font-size:12px;font-weight:700;color:#d68910;margin-bottom:4px">⚠️ ANTES DE CONFIRMAR</div>
-        <div style="font-size:13px;color:var(--gray-700)">Asegurate de que la ${tipoTexto} ya fue generada en RCTA y está lista para que el paciente la retire.</div>
-      </div>
+      <p style="font-size:14px;color:var(--gray-500);margin:8px 0 4px">Vas a notificar a <b>${patientName}</b></p>
+      <p style="font-size:14px;color:var(--gray-500);margin-bottom:16px">que su <b>${tipoTexto} fue procesada.</b></p>
+      ${esTranscripcion && fileUrl ? `
+        <div style="background:var(--red-light);border-radius:10px;padding:12px 16px;margin-bottom:16px;text-align:left">
+          <div style="font-size:12px;font-weight:700;color:var(--red);margin-bottom:4px">🗑️ SE BORRARÁ LA IMAGEN</div>
+          <div style="font-size:13px;color:var(--gray-700)">La imagen se eliminará del servidor al confirmar para liberar espacio.</div>
+        </div>` : `
+        <div style="background:var(--orange-light);border-radius:10px;padding:12px 16px;margin-bottom:16px;text-align:left">
+          <div style="font-size:12px;font-weight:700;color:#d68910;margin-bottom:4px">⚠️ ANTES DE CONFIRMAR</div>
+          <div style="font-size:13px;color:var(--gray-700)">Asegurate de que la ${tipoTexto} ya fue generada en RCTA.</div>
+        </div>`}
     </div>
     <div id="notif-error" class="alert alert-error hidden"></div>
     <div style="display:flex;gap:10px">
-      <button class="btn btn-secondary" style="flex:1" onclick="closeModal()">
-        Cancelar
-      </button>
-      <button class="btn btn-success" style="flex:1" onclick="enviarNotificacion('${requestId}')">
+      <button class="btn btn-secondary" style="flex:1" onclick="closeModal()">Cancelar</button>
+      <button class="btn btn-success" style="flex:1" onclick="enviarNotificacion('${requestId}', '${fileUrl}', '${requestType}')">
         <svg viewBox="0 0 24 24"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z" fill="currentColor"/></svg>
         Sí, notificar
       </button>
@@ -123,11 +161,27 @@ function confirmarNotificacion(requestId, patientName, requestType) {
   `);
 }
 
-async function enviarNotificacion(requestId) {
-  const mensajeNotificacion = 'Tu solicitud ya está lista para retirar. Pasate por el Servicio Médico. Ante cualquier duda, no dudes en consultarnos.';
+async function enviarNotificacion(requestId, fileUrl, requestType) {
+  const mensajes = {
+    receta: 'Tu receta ya está lista para retirar. Pasate por el Servicio Médico.',
+    orden: 'Tu orden médica ya está lista para retirar. Pasate por el Servicio Médico.',
+    transcripcion: 'Tu transcripción fue recibida y procesada correctamente. Pasate por el Servicio Médico.'
+  };
+  const mensaje = mensajes[requestType] || 'Tu solicitud fue procesada. Pasate por el Servicio Médico.';
 
   try {
-    await dbRespondRequest(requestId, mensajeNotificacion);
+    await dbRespondRequest(requestId, mensaje);
+
+    // Si es transcripción con imagen → borrar del storage
+    if (requestType === 'transcripcion' && fileUrl && fileUrl !== '[archivo adjunto]') {
+      try {
+        const decoded = decodeURIComponent(fileUrl);
+        await dbDeleteTranscripcionFile(decoded);
+      } catch (delErr) {
+        console.warn('No se pudo borrar la imagen:', delErr);
+      }
+    }
+
     closeModal();
     showToast('✓ Paciente notificado correctamente', 'success');
     renderSolicitudesPendientes();
@@ -136,6 +190,7 @@ async function enviarNotificacion(requestId) {
     if (errEl) showAlert(errEl, 'Error al notificar. Intentá nuevamente.');
   }
 }
+
 
 // ===== SOLICITUDES RESPONDIDAS & ESTADÍSTICAS =====
 async function renderSolicitudesRespondidas() {

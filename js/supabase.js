@@ -193,3 +193,19 @@ async function dbGetAllProfilesWithRequests() {
   if (error) throw error;
   return data || [];
 }
+
+async function dbDeleteTranscripcionFile(fileUrl) {
+  const sb = getSupabase();
+  // Extraer el path del archivo desde la URL pública
+  // URL formato: https://xxx.supabase.co/storage/v1/object/public/vasasalud/transcriptions/...
+  const marker = '/object/public/vasasalud/';
+  const idx = fileUrl.indexOf(marker);
+  if (idx === -1) throw new Error('URL de storage no reconocida');
+  const filePath = fileUrl.substring(idx + marker.length);
+
+  const { error } = await sb.storage
+    .from('vasasalud')
+    .remove([filePath]);
+
+  if (error) throw error;
+}
