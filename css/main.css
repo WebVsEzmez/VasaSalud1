@@ -1108,3 +1108,215 @@ body {
   margin: 12px 0 4px;
 }
 .alpha-header:first-child { margin-top: 0; }
+
+/* === ESTADÍSTICAS & GRÁFICO === */
+.stats-section {
+  margin-bottom: 8px;
+}
+
+.stats-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-family: var(--font-heading);
+  font-size: 15px;
+  font-weight: 800;
+  color: var(--gray-700);
+  margin-bottom: 14px;
+}
+.stats-title svg { width: 18px; height: 18px; color: var(--teal); }
+
+/* Totales globales */
+.stats-totals {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  margin-bottom: 18px;
+}
+
+.stat-total-card {
+  border-radius: var(--radius-sm);
+  padding: 14px 12px;
+  text-align: center;
+}
+.stat-total-card.teal  { background: var(--teal-light);   }
+.stat-total-card.blue  { background: var(--blue-light);   }
+.stat-total-card.purple{ background: var(--purple-light); }
+.stat-total-card.green { background: var(--green-light);  }
+
+.stat-total-num {
+  font-family: var(--font-heading);
+  font-size: 32px;
+  font-weight: 900;
+  color: var(--gray-800);
+  line-height: 1;
+  margin-bottom: 4px;
+}
+.stat-total-label {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--gray-500);
+}
+
+/* Tabla mensual */
+.stats-table-wrap {
+  overflow-x: auto;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--gray-200);
+  margin-bottom: 20px;
+}
+
+.stats-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+  min-width: 320px;
+}
+.stats-table th {
+  background: var(--gray-50);
+  padding: 10px 12px;
+  text-align: center;
+  font-family: var(--font-heading);
+  font-size: 11px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--gray-500);
+  border-bottom: 2px solid var(--gray-200);
+}
+.stats-table th:first-child { text-align: left; }
+.stats-table td {
+  padding: 10px 12px;
+  text-align: center;
+  border-bottom: 1px solid var(--gray-100);
+  color: var(--gray-700);
+}
+.stats-table td:first-child { text-align: left; }
+.stats-table tr:last-child td { border-bottom: none; }
+.stats-table tr:hover td { background: var(--teal-xlight); }
+
+.stat-pill {
+  display: inline-block;
+  padding: 3px 10px;
+  border-radius: 20px;
+  font-weight: 700;
+  font-size: 13px;
+}
+.teal-pill   { background: var(--teal-light);   color: var(--teal-dark); }
+.blue-pill   { background: var(--blue-light);   color: var(--blue); }
+.purple-pill { background: var(--purple-light); color: var(--purple); }
+
+/* Gráfico de barras */
+.chart-wrap {
+  background: var(--gray-50);
+  border: 1px solid var(--gray-200);
+  border-radius: var(--radius-sm);
+  padding: 16px 12px 10px;
+  margin-bottom: 8px;
+  position: relative;
+}
+
+.chart-label-y {
+  font-size: 10px;
+  font-weight: 700;
+  color: var(--gray-400);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-bottom: 8px;
+}
+
+.chart-label-x {
+  font-size: 10px;
+  font-weight: 700;
+  color: var(--gray-400);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  text-align: center;
+  margin-top: 6px;
+}
+
+.chart-bars {
+  display: flex;
+  align-items: flex-end;
+  gap: 6px;
+  height: 140px;
+  padding: 0 4px;
+  border-left: 2px solid var(--gray-300);
+  border-bottom: 2px solid var(--gray-300);
+  overflow-x: auto;
+}
+
+.chart-bar-group {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  min-width: 40px;
+  flex: 1;
+  max-width: 64px;
+}
+
+.chart-bar-val {
+  font-family: var(--font-heading);
+  font-size: 11px;
+  font-weight: 800;
+  color: var(--gray-600);
+}
+
+.chart-bar-stack {
+  display: flex;
+  flex-direction: column-reverse;
+  align-items: center;
+  width: 100%;
+  height: 100px;
+  gap: 1px;
+}
+
+.chart-bar-seg {
+  width: 100%;
+  border-radius: 3px 3px 0 0;
+  min-height: 2px;
+  transition: height 0.6s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.bar-teal   { background: var(--teal); }
+.bar-blue   { background: var(--blue); }
+.bar-purple { background: var(--purple); }
+
+.chart-bar-label {
+  font-size: 10px;
+  font-weight: 700;
+  color: var(--gray-500);
+  text-align: center;
+  line-height: 1.2;
+}
+.chart-bar-label small { font-size: 9px; color: var(--gray-400); }
+
+/* Leyenda del gráfico */
+.chart-legend {
+  display: flex;
+  gap: 14px;
+  flex-wrap: wrap;
+  margin-top: 10px;
+  justify-content: center;
+}
+.chart-legend-item {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--gray-500);
+}
+.legend-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+@media (min-width: 600px) {
+  .stats-totals {
+    grid-template-columns: repeat(4, 1fr);
+  }
+}

@@ -15,6 +15,7 @@ function showAdminSection(sectionName) {
 
   switch (sectionName) {
     case 'solicitudes-pendientes': renderSolicitudesPendientes(); break;
+    case 'solicitudes-respondidas': renderSolicitudesRespondidas(); break;
     case 'mis-pacientes': renderMisPacientes(); break;
     case 'nuevo-admin': renderNuevoAdmin(); break;
     case 'mi-perfil-admin': renderAdminPerfil(); break;
@@ -136,6 +137,199 @@ async function enviarNotificacion(requestId) {
   }
 }
 
+// ===== SOLICITUDES RESPONDIDAS & ESTADÍSTICAS =====
+async function renderSolicitudesRespondidas() {
+  const container = document.getElementById('admin-sections');
+  container.innerHTML = sectionPanelHTML(
+    'Respondidas & Estadísticas',
+    'Solicitudes completadas y métricas mensuales',
+    `<div class="loading-center"><div class="spinner"></div></div>`
+  );
+
+  try {
+    const sb = getSupabase();
+    const { data: requests, error } = await sb
+      .from('requests')
+      .select('*, profiles!requests_user_id_fkey(full_name, dni, email)')
+      .eq('status', 'responded')
+      .order('responded_at', { ascending: false });
+
+    if (error) throw error;
+
+    const body = document.querySelector('#admin-sections .section-body');
+
+    if (!requests || !requests.length) {
+      body.innerHTML = emptyStateHTML('Sin respondidas', 'Todavía no respondiste ninguna solicitud');
+      return;
+    }
+
+    // ---- Estadísticas mensuales ----
+    const stats = calcularEstadisticasMensuales(requests);
+
+    body.innerHTML = `
+      <!-- STATS SECTION -->
+      <div class="stats-section">
+        <div class="stats-title">
+          <svg viewBox="0 0 24 24"><path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zM9 17H7v-7h2v7zm4 0h-2V7h2v10zm4 0h-2v-4h2v4z" fill="currentColor"/></svg>
+          Estadísticas Mensuales
+        </div>
+
+        <!-- Totales globales -->
+        <div class="stats-totals">
+          <div class="stat-total-card teal">
+            <div class="stat-total-num">${requests.filter(r=>r.type==='receta').length}</div>
+            <div class="stat-total-label">💊 Recetas</div>
+          </div>
+          <div class="stat-total-card blue">
+            <div class="stat-total-num">${requests.filter(r=>r.type==='orden').length}</div>
+            <div class="stat-total-label">📋 Órdenes</div>
+          </div>
+          <div class="stat-total-card purple">
+            <div class="stat-total-num">${requests.filter(r=>r.type==='transcripcion').length}</div>
+            <div class="stat-total-label">📸 Transcripciones</div>
+          </div>
+          <div class="stat-total-card green">
+            <div class="stat-total-num">${requests.length}</div>
+            <div class="stat-total-label">✅ Total</div>
+          </div>
+        </div>
+
+        <!-- Tabla mensual -->
+        <div class="stats-table-wrap">
+          <table class="stats-table">
+            <thead>
+              <tr>
+                <th>Mes</th>
+                <th>💊 Recetas</th>
+                <th>📋 Órdenes</th>
+                <th>📸 Transcripciones</th>
+                <th>Total</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${stats.map(s => `
+                <tr>
+                  <td><b>${s.mes}</b></td>
+                  <td><span class="stat-pill teal-pill">${s.recetas}</span></td>
+                  <td><span class="stat-pill blue-pill">${s.ordenes}</span></td>
+                  <td><span class="stat-pill purple-pill">${s.transcripciones}</span></td>
+                  <td><b>${s.total}</b></td>
+                </tr>
+              `).join('')}
+            </tbody>
+          </table>
+        </div>
+
+        <!-- Gráfico de barras -->
+        <div class="chart-wrap">
+          <div class="chart-label-y">Cantidad</div>
+          <div class="chart-bars" id="admin-chart-bars"></div>
+          <div class="chart-label-x">Meses</div>
+          <div class="chart-legend">
+            <div class="chart-legend-item"><div class="legend-dot" style="background:var(--teal)"></div>Recetas</div>
+            <div class="chart-legend-item"><div class="legend-dot" style="background:var(--blue)"></div>Órdenes</div>
+            <div class="chart-legend-item"><div class="legend-dot" style="background:var(--purple)"></div>Transcripciones</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- LISTA DE RESPONDIDAS -->
+      <div class="stats-title" style="margin-top:24px;margin-bottom:12px">
+        <svg viewBox="0 0 24 24"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z" fill="currentColor"/></svg>
+        Historial de Respondidas (${requests.length})
+      </div>
+      <div id="respondidas-lista">
+        ${requests.map(r => respondidaCardHTML(r)).join('')}
+      </div>
+    `;
+
+    // Renderizar gráfico después de insertar el DOM
+    renderBarChart(stats);
+
+  } catch (e) {
+    showToast('Error al cargar', 'error');
+  }
+}
+
+function calcularEstadisticasMensuales(requests) {
+  const meses = {};
+  const MESES_ES = ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
+
+  requests.forEach(r => {
+    const fecha = new Date(r.responded_at || r.created_at);
+    const key = `${fecha.getFullYear()}-${String(fecha.getMonth()+1).padStart(2,'0')}`;
+    const label = `${MESES_ES[fecha.getMonth()]} ${fecha.getFullYear()}`;
+
+    if (!meses[key]) meses[key] = { key, mes: label, recetas: 0, ordenes: 0, transcripciones: 0, total: 0 };
+    if (r.type === 'receta') meses[key].recetas++;
+    else if (r.type === 'orden') meses[key].ordenes++;
+    else if (r.type === 'transcripcion') meses[key].transcripciones++;
+    meses[key].total++;
+  });
+
+  return Object.values(meses).sort((a,b) => a.key.localeCompare(b.key));
+}
+
+function renderBarChart(stats) {
+  const container = document.getElementById('admin-chart-bars');
+  if (!container || !stats.length) return;
+
+  const maxVal = Math.max(...stats.map(s => s.total), 1);
+
+  container.innerHTML = stats.map(s => {
+    const pct = Math.round((s.total / maxVal) * 100);
+    const pctR = Math.round((s.recetas / maxVal) * 100);
+    const pctO = Math.round((s.ordenes / maxVal) * 100);
+    const pctT = Math.round((s.transcripciones / maxVal) * 100);
+    return `
+      <div class="chart-bar-group">
+        <div class="chart-bar-val">${s.total}</div>
+        <div class="chart-bar-stack">
+          <div class="chart-bar-seg bar-purple" style="height:${pctT}%" title="Transcripciones: ${s.transcripciones}"></div>
+          <div class="chart-bar-seg bar-blue" style="height:${pctO}%" title="Órdenes: ${s.ordenes}"></div>
+          <div class="chart-bar-seg bar-teal" style="height:${pctR}%" title="Recetas: ${s.recetas}"></div>
+        </div>
+        <div class="chart-bar-label">${s.mes.split(' ')[0]}<br><small>${s.mes.split(' ')[1]||''}</small></div>
+      </div>
+    `;
+  }).join('');
+}
+
+function respondidaCardHTML(r) {
+  const profile = r.profiles || {};
+  const badges = {
+    receta: '<span class="request-type-badge badge-receta">💊 Receta</span>',
+    orden: '<span class="request-type-badge badge-orden">📋 Orden</span>',
+    transcripcion: '<span class="request-type-badge badge-transcripcion">📸 Transcripción</span>'
+  };
+  const details = safeParseJSON(r.details);
+  let detailText = '';
+  if (r.type === 'receta') detailText = `${details.farmaco || ''} ${details.dosis || ''} · ${details.cantidad || ''}`;
+  if (r.type === 'orden') detailText = (details.detalle || '').slice(0, 80);
+  if (r.type === 'transcripcion') detailText = 'Receta fotografiada';
+
+  return `
+    <div class="request-card" style="border-left:3px solid var(--green)">
+      <div class="request-card-header">
+        ${badges[r.type] || ''}
+        <span class="status-badge status-responded">✓ Respondida</span>
+      </div>
+      <div style="font-weight:700;font-size:15px;margin-bottom:2px">${profile.full_name || '—'}</div>
+      <div style="font-size:12px;color:var(--gray-500);margin-bottom:6px">DNI: ${profile.dni || '—'} · ${profile.email || '—'}</div>
+      <div class="request-info">${detailText}</div>
+      ${r.admin_response ? `
+        <div style="margin-top:8px;padding:10px 12px;background:var(--green-light);border-radius:8px;border-left:3px solid var(--green)">
+          <div style="font-size:11px;color:#27ae60;font-weight:700;margin-bottom:3px">NOTIFICACIÓN ENVIADA</div>
+          <div style="font-size:13px;color:var(--gray-700)">${r.admin_response}</div>
+        </div>` : ''}
+      <div style="display:flex;justify-content:space-between;margin-top:10px;font-size:12px;color:var(--gray-400)">
+        <span>Solicitado: ${formatDate(r.created_at)}</span>
+        <span>Respondido: ${formatDate(r.responded_at || r.created_at)}</span>
+      </div>
+    </div>
+  `;
+}
+
 // ===== MIS PACIENTES =====
 async function renderMisPacientes() {
   const container = document.getElementById('admin-sections');
@@ -144,25 +338,16 @@ async function renderMisPacientes() {
       <svg viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z" fill="currentColor"/></svg>
       <input type="text" id="patient-search" placeholder="Buscar paciente..." oninput="filterPatients()" />
     </div>
-    <div class="loading-center"><div class="spinner"></div></div>
+    <div id="patients-content"><div class="loading-center"><div class="spinner"></div></div></div>
   `);
 
   try {
     const users = await dbGetAllUsers();
-    const body = document.querySelector('#admin-sections .section-body');
-
-    if (!users.length) {
-      const searchBar = body.querySelector('.search-bar');
-      body.innerHTML = '';
-      body.appendChild(searchBar);
-      body.innerHTML += emptyStateHTML('Sin pacientes', 'No hay usuarios registrados todavía');
-      return;
-    }
-
-    // Build alphabetical list
     window._adminPatients = users;
     renderPatientList(users);
   } catch (e) {
+    const pc = document.getElementById('patients-content');
+    if (pc) pc.innerHTML = '<p style="color:var(--red);font-size:14px;padding:16px 0">Error al cargar pacientes.</p>';
     showToast('Error al cargar pacientes', 'error');
   }
 }
@@ -178,13 +363,11 @@ function filterPatients() {
 }
 
 function renderPatientList(users) {
-  const body = document.querySelector('#admin-sections .section-body');
-  const searchBar = body.querySelector('.search-bar');
-  if (!searchBar) return;
+  const pc = document.getElementById('patients-content');
+  if (!pc) return;
 
-  // Remove old list
-  const oldList = body.querySelector('.patient-list-wrapper');
-  if (oldList) oldList.remove();
+  // Limpiar contenido anterior (spinner o lista vieja)
+  pc.innerHTML = '';
 
   if (!users.length) {
     const div = document.createElement('div');
@@ -194,7 +377,12 @@ function renderPatientList(users) {
     return;
   }
 
-  // Group by first letter
+  if (!users.length) {
+    pc.innerHTML = emptyStateHTML('Sin resultados', 'No hay pacientes con ese criterio');
+    return;
+  }
+
+  // Agrupar por primera letra
   const grouped = {};
   users.forEach(u => {
     const letter = (u.full_name || u.email || '?')[0].toUpperCase();
@@ -202,15 +390,13 @@ function renderPatientList(users) {
     grouped[letter].push(u);
   });
 
-  const wrapper = document.createElement('div');
-  wrapper.className = 'patient-list-wrapper';
-
+  let html = '';
   Object.keys(grouped).sort().forEach(letter => {
-    wrapper.innerHTML += `<div class="alpha-header">${letter}</div>`;
-    wrapper.innerHTML += `<ul class="patient-list">${grouped[letter].map(u => patientItemHTML(u)).join('')}</ul>`;
+    html += `<div class="alpha-header">${letter}</div>`;
+    html += `<ul class="patient-list">${grouped[letter].map(u => patientItemHTML(u)).join('')}</ul>`;
   });
 
-  body.appendChild(wrapper);
+  pc.innerHTML = html;
 }
 
 function patientItemHTML(u) {
