@@ -70,48 +70,109 @@ async function renderMiFamilia() {
 function familyItemHTML(m) {
   const initials = m.name.split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase();
   return `
-    <div class="family-item">
-      <div class="family-info">
-        <div class="family-avatar">${initials}</div>
-        <div>
-          <div style="font-weight:700;font-size:15px;color:var(--gray-800)">${m.name}</div>
-          <div style="font-size:12px;color:var(--gray-500)">DNI: ${m.dni || '—'} · Edad: ${m.age || '—'}</div>
+    <div class="family-item" style="flex-direction:column;align-items:stretch;gap:10px">
+      <div style="display:flex;align-items:center;justify-content:space-between;gap:10px">
+        <div class="family-info">
+          <div class="family-avatar">${initials}</div>
+          <div>
+            <div style="font-weight:700;font-size:15px;color:var(--gray-800)">${m.name}</div>
+            <div style="font-size:12px;color:var(--gray-500)">DNI: ${m.dni || '—'}</div>
+          </div>
+        </div>
+        <div style="display:flex;gap:6px;flex-shrink:0">
+          <button class="btn btn-outline btn-sm" onclick="openEditFamiliarModal('${m.id}')">
+            <svg viewBox="0 0 24 24"><path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04c.39-.39.39-1.02 0-1.41l-2.34-2.34c-.39-.39-1.02-.39-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z" fill="currentColor"/></svg>
+          </button>
+          <button class="btn btn-danger btn-sm" onclick="deleteFamiliar('${m.id}')">
+            <svg viewBox="0 0 24 24"><path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z" fill="currentColor"/></svg>
+          </button>
         </div>
       </div>
-      <button class="btn btn-danger btn-sm" onclick="deleteFamiliar('${m.id}')">
-        <svg viewBox="0 0 24 24"><path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z" fill="currentColor"/></svg>
-      </button>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px 16px;background:var(--gray-50);border-radius:8px;padding:10px 12px">
+        <div>
+          <div style="font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:0.5px;color:var(--gray-400);margin-bottom:2px">Nacimiento</div>
+          <div style="font-size:13px;font-weight:600;color:var(--gray-700)">${m.birthdate ? formatDate(m.birthdate) : '—'}</div>
+        </div>
+        <div>
+          <div style="font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:0.5px;color:var(--gray-400);margin-bottom:2px">Obra Social</div>
+          <div style="font-size:13px;font-weight:600;color:var(--gray-700)">${m.obra_social || '—'}</div>
+        </div>
+        <div style="grid-column:1/-1">
+          <div style="font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:0.5px;color:var(--gray-400);margin-bottom:2px">N° Afiliado</div>
+          <div style="font-size:13px;font-weight:600;color:var(--gray-700)">${m.nro_afiliado || '—'}</div>
+        </div>
+      </div>
     </div>`;
 }
 
-function openAddFamiliarModal() {
-  openModal(`
-    <h2 class="modal-title">Agregar Familiar</h2>
-    <p class="modal-subtitle">Ingresá los datos del familiar</p>
+function familiarFormHTML(titulo, submitFn, m = {}) {
+  return `
+    <h2 class="modal-title">${titulo}</h2>
+    <p class="modal-subtitle">Completá los datos del familiar</p>
     <div id="familiar-error" class="alert alert-error hidden"></div>
-    <div class="form-group"><label>Nombre y Apellido</label><input type="text" id="fam-name" placeholder="María Pérez" /></div>
-    <div class="profile-info-row">
-      <div class="form-group"><label>DNI</label><input type="text" id="fam-dni" placeholder="12345678" /></div>
-      <div class="form-group"><label>Edad</label><input type="number" id="fam-age" placeholder="35" min="0" max="120" /></div>
-    </div>
-    <button class="btn btn-primary btn-full mt-12" onclick="addFamiliar()">Guardar Familiar</button>
-  `);
+    <div class="form-group"><label>Nombre y Apellido</label><input type="text" id="fam-name" placeholder="María Pérez" value="${m.name || ''}" /></div>
+    <div class="form-group"><label>DNI</label><input type="text" id="fam-dni" placeholder="12345678" value="${m.dni || ''}" /></div>
+    <div class="form-group"><label>Fecha de Nacimiento</label><input type="date" id="fam-birth" value="${m.birthdate || ''}" /></div>
+    <div class="form-group"><label>Obra Social</label><input type="text" id="fam-os" placeholder="OSDE, Swiss Medical..." value="${m.obra_social || ''}" /></div>
+    <div class="form-group"><label>N° Afiliado</label><input type="text" id="fam-afil" placeholder="Número de afiliado" value="${m.nro_afiliado || ''}" /></div>
+    <button class="btn btn-primary btn-full mt-12" onclick="${submitFn}">Guardar Familiar</button>
+  `;
+}
+
+function openAddFamiliarModal() {
+  openModal(familiarFormHTML('Agregar Familiar', 'addFamiliar()'));
+}
+
+function openEditFamiliarModal(id) {
+  // Buscar el familiar en la lista cargada
+  const sb = getSupabase();
+  sb.from('family_members').select('*').eq('id', id).single()
+    .then(({ data, error }) => {
+      if (error || !data) { showToast('Error al cargar familiar', 'error'); return; }
+      openModal(familiarFormHTML('Editar Familiar', `saveFamiliar('${id}')`, data));
+    });
 }
 
 async function addFamiliar() {
   const name = document.getElementById('fam-name')?.value?.trim();
   const dni = document.getElementById('fam-dni')?.value?.trim();
-  const age = document.getElementById('fam-age')?.value?.trim();
+  const birthdate = document.getElementById('fam-birth')?.value || null;
+  const obra_social = document.getElementById('fam-os')?.value?.trim();
+  const nro_afiliado = document.getElementById('fam-afil')?.value?.trim();
   const errEl = document.getElementById('familiar-error');
 
   if (!name) { showAlert(errEl, 'El nombre es obligatorio.'); return; }
 
   try {
-    await dbAddFamilyMember({ user_id: currentUser.id, name, dni, age: age ? parseInt(age) : null });
+    await dbAddFamilyMember({ user_id: currentUser.id, name, dni, birthdate, obra_social, nro_afiliado });
     closeModal();
     showToast('Familiar agregado', 'success');
     renderMiFamilia();
   } catch (e) {
+    showAlert(errEl, 'Error al guardar. Intentá nuevamente.');
+  }
+}
+
+async function saveFamiliar(id) {
+  const name = document.getElementById('fam-name')?.value?.trim();
+  const dni = document.getElementById('fam-dni')?.value?.trim();
+  const birthdate = document.getElementById('fam-birth')?.value || null;
+  const obra_social = document.getElementById('fam-os')?.value?.trim();
+  const nro_afiliado = document.getElementById('fam-afil')?.value?.trim();
+  const errEl = document.getElementById('familiar-error');
+
+  if (!name) { showAlert(errEl, 'El nombre es obligatorio.'); return; }
+
+  try {
+    const sb = getSupabase();
+    const { error } = await sb.from('family_members')
+      .update({ name, dni, birthdate, obra_social, nro_afiliado })
+      .eq('id', id);
+    if (error) throw error;
+    closeModal();
+    showToast('Familiar actualizado', 'success');
+    renderMiFamilia();
+  } catch {
     showAlert(errEl, 'Error al guardar. Intentá nuevamente.');
   }
 }
