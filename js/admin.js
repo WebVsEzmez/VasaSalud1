@@ -711,6 +711,10 @@ function adminGestionUserCardHTML(u) {
           <span class="gestion-dato-label">N° Afiliado</span>
           <span class="gestion-dato-val">${u.nro_afiliado || '—'}</span>
         </div>
+        <div class="gestion-dato">
+          <span class="gestion-dato-label">Legajo</span>
+          <span class="gestion-dato-val">${u.legajo || '—'}</span>
+        </div>
       </div>
 
       <div style="margin:10px 0 12px">
@@ -809,6 +813,7 @@ function abrirEditarUsuarioAdmin(userId) {
       <div class="form-group"><label>N° Afiliado</label><input type="text" id="ua-afil" value="${u.nro_afiliado || ''}" /></div>
     </div>
     <div class="form-group"><label>Celular</label><input type="tel" id="ua-phone" value="${u.phone || ''}" /></div>
+    <div class="form-group"><label>Legajo</label><input type="text" id="ua-legajo" value="${u.legajo || ''}" placeholder="Número de legajo" /></div>
     <button class="btn btn-primary btn-full mt-12" onclick="guardarEdicionUsuarioAdmin('${userId}')">
       <svg viewBox="0 0 24 24"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z" fill="currentColor"/></svg>
       Guardar Cambios
@@ -827,6 +832,7 @@ async function guardarEdicionUsuarioAdmin(userId) {
     plan: document.getElementById('ua-plan')?.value?.trim(),
     nro_afiliado: document.getElementById('ua-afil')?.value?.trim(),
     phone: document.getElementById('ua-phone')?.value?.trim(),
+    legajo: document.getElementById('ua-legajo')?.value?.trim(),
   };
   try {
     const sb = getSupabase();

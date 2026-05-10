@@ -760,6 +760,10 @@ function gestionUserCardHTML(u) {
           <span class="gestion-dato-label">N° Afiliado</span>
           <span class="gestion-dato-val">${u.nro_afiliado || '—'}</span>
         </div>
+        <div class="gestion-dato">
+          <span class="gestion-dato-label">Legajo</span>
+          <span class="gestion-dato-val">${u.legajo || '—'}</span>
+        </div>
       </div>
 
       <!-- Familiares -->
@@ -873,6 +877,7 @@ function abrirEditarUsuario(userId) {
       <div class="form-group"><label>N° Afiliado</label><input type="text" id="eu-afil" value="${u.nro_afiliado || ''}" /></div>
     </div>
     <div class="form-group"><label>Celular</label><input type="tel" id="eu-phone" value="${u.phone || ''}" /></div>
+    <div class="form-group"><label>Legajo</label><input type="text" id="eu-legajo" value="${u.legajo || ''}" placeholder="Número de legajo" /></div>
 
     <button class="btn btn-primary btn-full mt-12" onclick="guardarEdicionUsuario('${userId}')">
       <svg viewBox="0 0 24 24"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z" fill="currentColor"/></svg>
@@ -893,6 +898,7 @@ async function guardarEdicionUsuario(userId) {
     plan: document.getElementById('eu-plan')?.value?.trim(),
     nro_afiliado: document.getElementById('eu-afil')?.value?.trim(),
     phone: document.getElementById('eu-phone')?.value?.trim(),
+    legajo: document.getElementById('eu-legajo')?.value?.trim(),
   };
 
   try {

@@ -507,8 +507,9 @@ function profileViewHTML(p) {
       <div><div style="font-size:12px;color:var(--gray-400);font-weight:600;margin-bottom:3px">OBRA SOCIAL · PLAN · N° AFILIADO</div><div style="font-weight:700">${p.obra_social || '—'} · ${p.plan || '—'} · ${p.nro_afiliado || '—'}</div></div>
       <div class="profile-info-row">
         <div><div style="font-size:12px;color:var(--gray-400);font-weight:600;margin-bottom:3px">CELULAR</div><div style="font-weight:700">${p.phone || '—'}</div></div>
-        <div><div style="font-size:12px;color:var(--gray-400);font-weight:600;margin-bottom:3px">EMAIL</div><div style="font-weight:700;font-size:13px;word-break:break-all">${p.email || '—'}</div></div>
+        <div><div style="font-size:12px;color:var(--gray-400);font-weight:600;margin-bottom:3px">LEGAJO</div><div style="font-weight:700">${p.legajo || '—'}</div></div>
       </div>
+      <div><div style="font-size:12px;color:var(--gray-400);font-weight:600;margin-bottom:3px">EMAIL</div><div style="font-weight:700;font-size:13px;word-break:break-all">${p.email || '—'}</div></div>
     </div>
   `;
 }
@@ -524,6 +525,7 @@ async function saveUserProfile() {
     plan: document.getElementById('p-plan')?.value?.trim(),
     nro_afiliado: document.getElementById('p-afil')?.value?.trim(),
     phone: document.getElementById('p-phone')?.value?.trim(),
+    legajo: document.getElementById('p-legajo')?.value?.trim(),
     role: currentProfile?.role || VASA_CONFIG.roles.USER
   };
 
@@ -553,6 +555,7 @@ function openEditProfileModal() {
       <div class="form-group"><label>N° Afiliado</label><input type="text" id="p-afil" value="${p.nro_afiliado || ''}" /></div>
     </div>
     <div class="form-group"><label>Celular</label><input type="tel" id="p-phone" value="${p.phone || ''}" placeholder="+54 9 11 1234-5678" /></div>
+    <div class="form-group"><label>Legajo</label><input type="text" id="p-legajo" value="${p.legajo || ''}" placeholder="Número de legajo" /></div>
     <button class="btn btn-primary btn-full mt-12" onclick="saveUserProfile()">Guardar Cambios</button>
   `);
 }
