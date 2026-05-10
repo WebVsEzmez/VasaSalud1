@@ -77,7 +77,6 @@ async function confirmDeleteUser(userId, name) {
   if (!confirm(`¿Eliminar a ${name}? Esta acción no se puede deshacer.`)) return;
   try {
     const sb = getSupabase();
-    // Delete profile (auth user requires service_role, so we just soft-delete profile)
     const { error } = await sb.from('profiles').delete().eq('id', userId);
     if (error) throw error;
     showToast('Usuario eliminado', 'success');
@@ -97,7 +96,7 @@ async function renderTodosAdmins() {
     const body = document.querySelector('#super-sections .section-body');
 
     if (!admins.length) {
-      body.innerHTML = emptyStateHTML('Sin administradores', 'No hay admins registrados');
+      body.innerHTML = emptyStateHTML('Sin administradores', 'No hay admins registrados todavía');
       return;
     }
 
@@ -137,11 +136,18 @@ async function renderTodasSolicitudes() {
 
     body.innerHTML = requests.map(r => {
       const p = r.profiles || {};
+      const badges = {
+        receta: '<span class="request-type-badge badge-receta">💊 Receta</span>',
+        orden: '<span class="request-type-badge badge-orden">📋 Orden</span>',
+        transcripcion: '<span class="request-type-badge badge-transcripcion">📸 Transcripción</span>'
+      };
       return `
         <div class="request-card">
           <div class="request-card-header">
-            ${{receta:'<span class="request-type-badge badge-receta">💊 Receta</span>',orden:'<span class="request-type-badge badge-orden">📋 Orden</span>',transcripcion:'<span class="request-type-badge badge-transcripcion">📸 Transcripción</span>'}[r.type]||''}
-            ${r.status==='pending'?'<span class="status-badge status-pending">Pendiente</span>':'<span class="status-badge status-responded">Respondida</span>'}
+            ${badges[r.type] || ''}
+            ${r.status === 'pending'
+              ? '<span class="status-badge status-pending">Pendiente</span>'
+              : '<span class="status-badge status-responded">Respondida</span>'}
           </div>
           <div style="font-weight:700;margin-bottom:4px">${p.full_name || '—'}</div>
           <div class="request-info">${r.title || '—'}</div>
@@ -154,59 +160,175 @@ async function renderTodasSolicitudes() {
   }
 }
 
-// ===== CREAR ADMIN (super version) =====
+// ===== CREAR ADMIN =====
+// El anon key no puede crear usuarios auth desde el cliente.
+// El flujo correcto: el admin se registra solo con "Crear cuenta",
+// y el super admin le asigna el rol desde acá.
+
 function renderCrearAdmin() {
   const container = document.getElementById('super-sections');
-  container.innerHTML = sectionPanelHTML('Crear Administrador', 'Registrá un nuevo admin en el sistema', `
-    <div id="ca-error" class="alert alert-error hidden"></div>
-    <div id="ca-success" class="alert alert-success hidden"></div>
-    <div class="form-group"><label>Nombre y Apellido</label><input type="text" id="ca-name" placeholder="Dra. Ana García" /></div>
-    <div class="form-group"><label>Correo electrónico</label><input type="email" id="ca-email" placeholder="admin@vasasalud.com" /></div>
-    <div class="form-group">
-      <label>Contraseña temporal</label>
-      <div class="input-wrapper">
-        <svg class="input-icon" viewBox="0 0 24 24"><path d="M18 8h-1V6c0-2.76-2.24-5-5-5S7 3.24 7 6v2H6c-1.1 0-2 .9-2 2v10c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V10c0-1.1-.9-2-2-2zm-6 9c-1.1 0-2-.9-2-2s.9-2 2-2 2 .9 2 2-.9 2-2 2zm3.1-9H8.9V6c0-1.71 1.39-3.1 3.1-3.1 1.71 0 3.1 1.39 3.1 3.1v2z" fill="currentColor"/></svg>
-        <input type="password" id="ca-password" placeholder="Mínimo 6 caracteres" />
-        <button type="button" class="toggle-password" onclick="togglePassword('ca-password', this)">
-          <svg viewBox="0 0 24 24"><path d="M12 4.5C7 4.5 2.73 7.61 1 12c1.73 4.39 6 7.5 11 7.5s9.27-3.11 11-7.5c-1.73-4.39-6-7.5-11-7.5zM12 17c-2.76 0-5-2.24-5-5s2.24-5 5-5 5 2.24 5 5-2.24 5-5 5zm0-8c-1.66 0-3 1.34-3 3s1.34 3 3 3 3-1.34 3-3-1.34-3-3-3z" fill="currentColor"/></svg>
-        </button>
+  container.innerHTML = sectionPanelHTML('Crear Administrador', 'Asigná rol admin a un usuario registrado', `
+
+    <!-- OPCIÓN A: Asignar rol a usuario existente -->
+    <div style="background:var(--blue-light);border-radius:12px;padding:16px;margin-bottom:20px">
+      <div style="font-family:var(--font-heading);font-weight:800;font-size:14px;color:var(--blue);margin-bottom:6px">
+        📋 ¿Cómo funciona?
+      </div>
+      <div style="font-size:13px;color:var(--gray-700);line-height:1.6">
+        1. La persona se registra normalmente con "Crear cuenta"<br>
+        2. Buscás su email acá abajo y le asignás el rol de Admin
       </div>
     </div>
+
+    <div id="ca-error" class="alert alert-error hidden"></div>
+    <div id="ca-success" class="alert alert-success hidden"></div>
+
+    <div class="form-group">
+      <label>Email del usuario a promover</label>
+      <input type="email" id="ca-email" placeholder="medica@vasasalud.com" />
+    </div>
+
     <div class="form-group">
       <label>Tipo de rol</label>
-      <select id="ca-role" style="width:100%;padding:12px 14px;border:2px solid var(--gray-200);border-radius:10px;font-size:15px;outline:none">
+      <select id="ca-role" style="width:100%;padding:12px 14px;border:2px solid var(--gray-200);border-radius:10px;font-size:15px;outline:none;background:white;color:var(--gray-800)">
         <option value="admin">Administrador (Médica/Enfermera)</option>
         <option value="super_admin">Super Administrador</option>
+        <option value="user">Usuario (trabajador)</option>
       </select>
     </div>
-    <button class="btn btn-primary btn-full mt-8" onclick="crearAdminSuper()">Crear Cuenta</button>
+
+    <button class="btn btn-primary btn-full mt-8" onclick="asignarRolAdmin()">
+      <svg viewBox="0 0 24 24"><path d="M12 1L3 5v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V5l-9-4z" fill="currentColor"/></svg>
+      Asignar Rol
+    </button>
+
+    <div style="border-top:1px solid var(--gray-200);margin:24px 0"></div>
+
+    <!-- OPCIÓN B: Ver todos los perfiles y cambiar rol -->
+    <div style="font-family:var(--font-heading);font-weight:800;font-size:15px;color:var(--gray-700);margin-bottom:12px">
+      Todos los perfiles registrados
+    </div>
+    <div id="all-profiles-list">
+      <div class="loading-center"><div class="spinner"></div></div>
+    </div>
   `);
+
+  // Cargar todos los perfiles
+  loadAllProfilesForRoleManagement();
 }
 
-async function crearAdminSuper() {
-  const name = document.getElementById('ca-name')?.value?.trim();
-  const email = document.getElementById('ca-email')?.value?.trim();
-  const password = document.getElementById('ca-password')?.value;
-  const role = document.getElementById('ca-role')?.value || VASA_CONFIG.roles.ADMIN;
-  const errEl = document.getElementById('ca-error');
-  const sucEl = document.getElementById('ca-success');
-
-  if (!name || !email || !password) { showAlert(errEl, 'Completá todos los campos.'); return; }
-  if (password.length < 6) { showAlert(errEl, 'La contraseña debe tener al menos 6 caracteres.'); return; }
+async function loadAllProfilesForRoleManagement() {
+  const container = document.getElementById('all-profiles-list');
+  if (!container) return;
 
   try {
     const sb = getSupabase();
-    const { data, error } = await sb.auth.signUp({ email, password, options: { data: { full_name: name } } });
+    const { data, error } = await sb
+      .from('profiles')
+      .select('*')
+      .order('full_name');
     if (error) throw error;
 
-    if (data.user) {
-      await dbUpsertProfile({ id: data.user.id, email, full_name: name, role });
+    if (!data || !data.length) {
+      container.innerHTML = emptyStateHTML('Sin perfiles', 'No hay usuarios registrados');
+      return;
+    }
+
+    container.innerHTML = `
+      <ul class="patient-list">
+        ${data.map(p => profileRoleItemHTML(p)).join('')}
+      </ul>
+    `;
+  } catch {
+    container.innerHTML = '<p style="color:var(--gray-400);font-size:14px">Error al cargar perfiles</p>';
+  }
+}
+
+function profileRoleItemHTML(p) {
+  const initials = (p.full_name || p.email || 'U').split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase();
+  const roleColors = {
+    super_admin: 'super-badge',
+    admin: 'admin-badge',
+    user: 'user-badge'
+  };
+  const roleLabels = {
+    super_admin: 'Super Admin',
+    admin: 'Admin',
+    user: 'Usuario'
+  };
+
+  return `
+    <li class="patient-item" style="flex-wrap:wrap;gap:8px">
+      <div class="patient-avatar ${p.role === 'admin' ? 'admin-avatar' : p.role === 'super_admin' ? 'super-avatar' : ''}">${initials}</div>
+      <div class="patient-info" style="min-width:0;flex:1">
+        <div class="patient-name">${p.full_name || 'Sin nombre'}</div>
+        <div class="patient-detail" style="word-break:break-all">${p.email}</div>
+      </div>
+      <div style="display:flex;align-items:center;gap:8px;flex-shrink:0">
+        <span class="role-badge ${roleColors[p.role] || 'user-badge'}">${roleLabels[p.role] || p.role}</span>
+        <select onchange="cambiarRolDirecto('${p.id}', this.value, this)"
+          style="padding:6px 8px;border:2px solid var(--gray-200);border-radius:8px;font-size:12px;font-weight:600;outline:none;cursor:pointer;background:white">
+          <option value="user" ${p.role === 'user' ? 'selected' : ''}>Usuario</option>
+          <option value="admin" ${p.role === 'admin' ? 'selected' : ''}>Admin</option>
+          <option value="super_admin" ${p.role === 'super_admin' ? 'selected' : ''}>Super Admin</option>
+        </select>
+      </div>
+    </li>
+  `;
+}
+
+async function cambiarRolDirecto(userId, newRole, selectEl) {
+  const original = selectEl.dataset.original || selectEl.value;
+  selectEl.dataset.original = newRole;
+
+  try {
+    const sb = getSupabase();
+    const { error } = await sb
+      .from('profiles')
+      .update({ role: newRole })
+      .eq('id', userId);
+
+    if (error) throw error;
+    showToast(`Rol actualizado a ${newRole}`, 'success');
+    loadAllProfilesForRoleManagement();
+  } catch {
+    showToast('Error al cambiar rol', 'error');
+    selectEl.value = original;
+  }
+}
+
+async function asignarRolAdmin() {
+  const email = document.getElementById('ca-email')?.value?.trim().toLowerCase();
+  const role = document.getElementById('ca-role')?.value || 'admin';
+  const errEl = document.getElementById('ca-error');
+  const sucEl = document.getElementById('ca-success');
+
+  if (!email) { showAlert(errEl, 'Ingresá el email del usuario.'); return; }
+
+  try {
+    const sb = getSupabase();
+
+    // Buscar el perfil por email
+    const { data, error } = await sb
+      .from('profiles')
+      .update({ role })
+      .eq('email', email)
+      .select();
+
+    if (error) throw error;
+
+    if (!data || data.length === 0) {
+      showAlert(errEl, 'No se encontró ningún usuario con ese email. ¿Ya se registró en la app?');
+      return;
     }
 
     errEl.classList.add('hidden');
-    showAlert(sucEl, `✓ Cuenta creada para ${name}. Rol: ${role}`);
-    ['ca-name','ca-email','ca-password'].forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
+    showAlert(sucEl, `✓ Rol "${role}" asignado a ${email} correctamente.`);
+    document.getElementById('ca-email').value = '';
+
+    // Recargar lista
+    loadAllProfilesForRoleManagement();
   } catch (e) {
-    showAlert(errEl, getAuthError(e.message));
+    showAlert(errEl, 'Error al asignar rol. Intentá nuevamente.');
   }
 }

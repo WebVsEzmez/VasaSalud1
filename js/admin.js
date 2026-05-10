@@ -261,57 +261,47 @@ async function openPatientDetail(userId, name) {
 // ===== NUEVO ADMIN =====
 function renderNuevoAdmin() {
   const container = document.getElementById('admin-sections');
-  container.innerHTML = sectionPanelHTML('Nuevo Administrador', 'Registrá una médica o enfermera', `
-    <div id="newadmin-error" class="alert alert-error hidden"></div>
-    <div id="newadmin-success" class="alert alert-success hidden"></div>
-    <div class="form-group"><label>Nombre y Apellido</label><input type="text" id="na-name" placeholder="Dra. Ana García" /></div>
-    <div class="form-group"><label>Correo electrónico</label><input type="email" id="na-email" placeholder="medica@vasasalud.com" /></div>
-    <div class="form-group">
-      <label>Contraseña temporal</label>
-      <div class="input-wrapper">
-        <svg class="input-icon" viewBox="0 0 24 24"><path d="M18 8h-1V6c0-2.76-2.24-5-5-5S7 3.24 7 6v2H6c-1.1 0-2 .9-2 2v10c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V10c0-1.1-.9-2-2-2zm-6 9c-1.1 0-2-.9-2-2s.9-2 2-2 2 .9 2 2-.9 2-2 2zm3.1-9H8.9V6c0-1.71 1.39-3.1 3.1-3.1 1.71 0 3.1 1.39 3.1 3.1v2z" fill="currentColor"/></svg>
-        <input type="password" id="na-password" placeholder="Mínimo 6 caracteres" />
-        <button type="button" class="toggle-password" onclick="togglePassword('na-password', this)">
-          <svg viewBox="0 0 24 24"><path d="M12 4.5C7 4.5 2.73 7.61 1 12c1.73 4.39 6 7.5 11 7.5s9.27-3.11 11-7.5c-1.73-4.39-6-7.5-11-7.5zM12 17c-2.76 0-5-2.24-5-5s2.24-5 5-5 5 2.24 5 5-2.24 5-5 5zm0-8c-1.66 0-3 1.34-3 3s1.34 3 3 3 3-1.34 3-3-1.34-3-3-3z" fill="currentColor"/></svg>
-        </button>
+  container.innerHTML = sectionPanelHTML('Nuevo Administrador', 'Asigná rol a un usuario ya registrado', `
+    <div style="background:var(--blue-light);border-radius:12px;padding:16px;margin-bottom:20px">
+      <div style="font-family:var(--font-heading);font-weight:800;font-size:14px;color:var(--blue);margin-bottom:6px">📋 ¿Cómo funciona?</div>
+      <div style="font-size:13px;color:var(--gray-700);line-height:1.6">
+        1. La persona se registra normalmente con <b>"Crear cuenta"</b><br>
+        2. Ingresás su email acá y le asignás el rol de Administrador
       </div>
     </div>
-    <button class="btn btn-primary btn-full mt-8" onclick="crearNuevoAdmin()">Crear Administrador</button>
+    <div id="newadmin-error" class="alert alert-error hidden"></div>
+    <div id="newadmin-success" class="alert alert-success hidden"></div>
+    <div class="form-group"><label>Email del usuario</label><input type="email" id="na-email" placeholder="medica@vasasalud.com" /></div>
+    <button class="btn btn-primary btn-full mt-8" onclick="crearNuevoAdmin()">Asignar Rol Admin</button>
   `);
 }
 
 async function crearNuevoAdmin() {
-  const name = document.getElementById('na-name')?.value?.trim();
-  const email = document.getElementById('na-email')?.value?.trim();
-  const password = document.getElementById('na-password')?.value;
+  const email = document.getElementById('na-email')?.value?.trim().toLowerCase();
   const errEl = document.getElementById('newadmin-error');
   const sucEl = document.getElementById('newadmin-success');
 
-  if (!name || !email || !password) { showAlert(errEl, 'Completá todos los campos.'); return; }
-  if (password.length < 6) { showAlert(errEl, 'La contraseña debe tener al menos 6 caracteres.'); return; }
+  if (!email) { showAlert(errEl, 'Ingresá el email del usuario.'); return; }
 
   try {
     const sb = getSupabase();
-    const { data, error } = await sb.auth.signUp({
-      email, password,
-      options: { data: { full_name: name } }
-    });
-    if (error) throw error;
+    const { data, error } = await sb
+      .from('profiles')
+      .update({ role: VASA_CONFIG.roles.ADMIN })
+      .eq('email', email)
+      .select();
 
-    if (data.user) {
-      await dbUpsertProfile({
-        id: data.user.id,
-        email,
-        full_name: name,
-        role: VASA_CONFIG.roles.ADMIN
-      });
+    if (error) throw error;
+    if (!data || data.length === 0) {
+      showAlert(errEl, 'No se encontró ningún usuario con ese email. ¿Ya se registró en la app?');
+      return;
     }
 
     errEl.classList.add('hidden');
-    showAlert(sucEl, `✓ Administrador ${name} creado. Debe confirmar su correo.`);
-    ['na-name','na-email','na-password'].forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
+    showAlert(sucEl, `✓ Rol Admin asignado a ${email} correctamente.`);
+    document.getElementById('na-email').value = '';
   } catch (e) {
-    showAlert(errEl, getAuthError(e.message));
+    showAlert(errEl, 'Error al asignar rol. Intentá nuevamente.');
   }
 }
 
