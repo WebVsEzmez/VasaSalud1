@@ -19,11 +19,10 @@ function showPage(pageId) {
   document.querySelectorAll('.auth-page').forEach(p => p.classList.remove('active'));
   const target = document.getElementById(pageId);
   if (target) target.classList.add('active');
-  // Clear alerts
   document.querySelectorAll('.alert').forEach(a => a.classList.add('hidden'));
 }
 
-// Handle login
+// ===== LOGIN =====
 async function handleLogin() {
   const email = document.getElementById('login-email')?.value?.trim();
   const password = document.getElementById('login-password')?.value;
@@ -50,15 +49,17 @@ async function handleLogin() {
   }
 }
 
-// Handle register
+// ===== REGISTER =====
 async function handleRegister() {
   const name = document.getElementById('reg-name')?.value?.trim();
   const email = document.getElementById('reg-email')?.value?.trim();
   const password = document.getElementById('reg-password')?.value;
+  const passwordConfirm = document.getElementById('reg-password-confirm')?.value;
   const errorEl = document.getElementById('register-error');
   const successEl = document.getElementById('register-success');
 
-  if (!name || !email || !password) {
+  // Validaciones
+  if (!name || !email || !password || !passwordConfirm) {
     showAlert(errorEl, 'Completá todos los campos.');
     return;
   }
@@ -66,31 +67,57 @@ async function handleRegister() {
     showAlert(errorEl, 'La contraseña debe tener al menos 6 caracteres.');
     return;
   }
+  if (password !== passwordConfirm) {
+    showAlert(errorEl, 'Las contraseñas no coinciden. Verificalas.');
+    return;
+  }
 
   setButtonLoading('register-page', true);
 
   try {
     const sb = getSupabase();
+
+    // Intentar registro
     const { data, error } = await sb.auth.signUp({
       email,
       password,
-      options: { data: { full_name: name } }
+      options: {
+        data: { full_name: name },
+        // No redirect para evitar problemas con email confirm
+        emailRedirectTo: window.location.origin
+      }
     });
+
     if (error) throw error;
 
-    // Create profile
     if (data.user) {
+      // Crear/actualizar perfil en la tabla
       await dbUpsertProfile({
         id: data.user.id,
-        email,
+        email: email,
         full_name: name,
         role: VASA_CONFIG.roles.USER
       });
+
+      // Si el usuario ya está confirmado (email confirm desactivado en Supabase)
+      // lo logueamos directamente
+      if (data.session) {
+        await loadUserProfile(data.user);
+        enterApp();
+        showToast(`Bienvenido, ${name.split(' ')[0]}!`, 'success');
+        return;
+      }
+
+      // Si requiere confirmación de email
+      errorEl.classList.add('hidden');
+      showAlert(successEl, '✓ Cuenta creada. Revisá tu correo para confirmar y luego ingresá.');
+      setTimeout(() => showPage('login-page'), 3000);
+
+    } else {
+      // Supabase a veces retorna sin user si el email ya existe pero no está confirmado
+      showAlert(errorEl, 'Ya existe una cuenta con ese correo. Intentá ingresar o recuperar contraseña.');
     }
 
-    showAlert(successEl, '¡Cuenta creada! Revisá tu correo para confirmar tu cuenta.');
-    errorEl.classList.add('hidden');
-    setTimeout(() => showPage('login-page'), 2500);
   } catch (err) {
     showAlert(errorEl, getAuthError(err.message));
   } finally {
@@ -98,7 +125,7 @@ async function handleRegister() {
   }
 }
 
-// Handle forgot password
+// ===== FORGOT PASSWORD =====
 async function handleForgotPassword() {
   const email = document.getElementById('forgot-email')?.value?.trim();
   const errorEl = document.getElementById('forgot-error');
@@ -126,7 +153,7 @@ async function handleForgotPassword() {
   }
 }
 
-// Logout
+// ===== LOGOUT =====
 async function logout() {
   try {
     const sb = getSupabase();
@@ -139,41 +166,46 @@ async function logout() {
   showToast('Sesión cerrada', 'info');
 }
 
-// Load user profile from DB
+// ===== LOAD PROFILE =====
 async function loadUserProfile(user) {
   currentUser = user;
   try {
     currentProfile = await dbGetProfile(user.id);
   } catch {
-    // Profile might not exist yet - create minimal one
+    // Si no existe el perfil todavía, crear uno básico
     currentProfile = {
       id: user.id,
       email: user.email,
       full_name: user.user_metadata?.full_name || user.email.split('@')[0],
       role: VASA_CONFIG.roles.USER
     };
-    await dbUpsertProfile(currentProfile);
+    try {
+      await dbUpsertProfile(currentProfile);
+    } catch (e) {
+      console.warn('No se pudo crear perfil:', e);
+    }
   }
 }
 
-// Get translated auth errors
+// ===== HELPERS =====
 function getAuthError(msg) {
+  if (!msg) return 'Ocurrió un error. Intentá nuevamente.';
   if (msg.includes('Invalid login credentials')) return 'Correo o contraseña incorrectos.';
-  if (msg.includes('Email not confirmed')) return 'Confirmá tu correo antes de ingresar.';
+  if (msg.includes('Email not confirmed')) return 'Confirmá tu correo antes de ingresar. Revisá tu bandeja.';
   if (msg.includes('User already registered')) return 'Ya existe una cuenta con ese correo.';
   if (msg.includes('Password should be')) return 'La contraseña debe tener al menos 6 caracteres.';
-  if (msg.includes('network')) return 'Error de conexión. Intentá nuevamente.';
+  if (msg.includes('Unable to validate email')) return 'El formato del correo no es válido.';
+  if (msg.includes('signup is disabled')) return 'El registro está deshabilitado. Contactá al administrador.';
+  if (msg.includes('network') || msg.includes('fetch')) return 'Error de conexión. Verificá tu internet.';
   return 'Ocurrió un error. Intentá nuevamente.';
 }
 
-// Show alert helper
 function showAlert(el, msg) {
   if (!el) return;
   el.textContent = msg;
   el.classList.remove('hidden');
 }
 
-// Set button loading state
 function setButtonLoading(pageId, loading) {
   const page = document.getElementById(pageId);
   if (!page) return;
