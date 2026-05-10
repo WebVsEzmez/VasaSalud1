@@ -73,49 +73,66 @@ function adminRequestCardHTML(r) {
       </div>
       <div class="request-info">${detailText}</div>
       <div class="request-date mt-12">${formatDateTime(r.created_at)}</div>
-      <div style="display:flex;gap:8px;margin-top:10px;flex-wrap:wrap">
-        <button class="btn btn-primary btn-sm" onclick="openResponderModal('${r.id}', '${(profile.full_name || '').replace(/'/g, '')}')">
-          <svg viewBox="0 0 24 24"><path d="M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2z" fill="currentColor"/></svg>
-          Responder
-        </button>
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-top:12px;flex-wrap:wrap;gap:8px">
         <a href="https://app.rcta.me/Login" target="_blank" rel="noopener noreferrer" class="btn btn-sm"
           style="background:linear-gradient(135deg,#6c3fc5,#8b5cf6);color:white;box-shadow:0 4px 14px rgba(108,63,197,0.35);text-decoration:none">
           <svg viewBox="0 0 24 24" style="width:15px;height:15px"><path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-7 3c1.93 0 3.5 1.57 3.5 3.5S13.93 13 12 13s-3.5-1.57-3.5-3.5S10.07 6 12 6zm7 13H5v-.23c0-.62.28-1.2.76-1.58C7.47 15.82 9.64 15 12 15s4.53.82 6.24 2.19c.48.38.76.97.76 1.58V19z" fill="currentColor"/></svg>
           RCTA
         </a>
+        <button class="btn btn-success btn-sm" onclick="confirmarNotificacion('${r.id}', '${(profile.full_name || '').replace(/'/g, '')}', '${r.type}')">
+          <svg viewBox="0 0 24 24" style="width:15px;height:15px"><path d="M18 16.08c-.76 0-1.44.3-1.96.77L8.91 12.7c.05-.23.09-.46.09-.7s-.04-.47-.09-.7l7.05-4.11c.54.5 1.25.81 2.04.81 1.66 0 3-1.34 3-3s-1.34-3-3-3-3 1.34-3 3c0 .24.04.47.09.7L8.04 9.81C7.5 9.31 6.79 9 6 9c-1.66 0-3 1.34-3 3s1.34 3 3 3c.79 0 1.5-.31 2.04-.81l7.12 4.16c-.05.21-.08.43-.08.65 0 1.61 1.31 2.92 2.92 2.92 1.61 0 2.92-1.31 2.92-2.92s-1.31-2.92-2.92-2.92z" fill="currentColor"/></svg>
+          Notificar
+        </button>
       </div>
     </div>
   `;
 }
 
-function openResponderModal(requestId, patientName) {
+// Confirmación antes de notificar
+function confirmarNotificacion(requestId, patientName, requestType) {
+  const tipoTexto = {
+    receta: 'receta',
+    orden: 'orden médica',
+    transcripcion: 'transcripción'
+  }[requestType] || 'solicitud';
+
   openModal(`
-    <h2 class="modal-title">Responder Solicitud</h2>
-    <p class="modal-subtitle">Paciente: <b>${patientName}</b></p>
-    <div id="resp-error" class="alert alert-error hidden"></div>
-    <div class="form-group">
-      <label>Tu respuesta al paciente</label>
-      <textarea id="resp-text" rows="4" placeholder="Ej: La receta fue enviada a tu correo. Cualquier consulta escribinos."></textarea>
+    <div style="text-align:center;padding:8px 0 16px">
+      <div style="width:64px;height:64px;background:var(--orange-light);border-radius:50%;display:flex;align-items:center;justify-content:center;margin:0 auto 16px">
+        <svg viewBox="0 0 24 24" style="width:32px;height:32px;color:#d68910"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-2h2v2zm0-4h-2V7h2v6z" fill="currentColor"/></svg>
+      </div>
+      <h2 class="modal-title" style="text-align:center">¿Confirmar notificación?</h2>
+      <p style="font-size:14px;color:var(--gray-500);margin:8px 0 4px">Vas a notificar a <b>${patientName}</b> que su</p>
+      <p style="font-size:14px;color:var(--gray-500);margin-bottom:20px"><b>${tipoTexto} ya está lista para retirar.</b></p>
+      <div style="background:var(--orange-light);border-radius:10px;padding:12px 16px;margin-bottom:20px;text-align:left">
+        <div style="font-size:12px;font-weight:700;color:#d68910;margin-bottom:4px">⚠️ ANTES DE CONFIRMAR</div>
+        <div style="font-size:13px;color:var(--gray-700)">Asegurate de que la ${tipoTexto} ya fue generada en RCTA y está lista para que el paciente la retire.</div>
+      </div>
     </div>
-    <button class="btn btn-primary btn-full mt-8" onclick="enviarRespuesta('${requestId}')">
-      <svg viewBox="0 0 24 24"><path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z" fill="currentColor"/></svg>
-      Enviar Respuesta
-    </button>
+    <div id="notif-error" class="alert alert-error hidden"></div>
+    <div style="display:flex;gap:10px">
+      <button class="btn btn-secondary" style="flex:1" onclick="closeModal()">
+        Cancelar
+      </button>
+      <button class="btn btn-success" style="flex:1" onclick="enviarNotificacion('${requestId}')">
+        <svg viewBox="0 0 24 24"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z" fill="currentColor"/></svg>
+        Sí, notificar
+      </button>
+    </div>
   `);
 }
 
-async function enviarRespuesta(requestId) {
-  const response = document.getElementById('resp-text')?.value?.trim();
-  const errEl = document.getElementById('resp-error');
-  if (!response) { showAlert(errEl, 'Escribí una respuesta.'); return; }
+async function enviarNotificacion(requestId) {
+  const mensajeNotificacion = 'Tu solicitud ya está lista para retirar. Pasate por el Servicio Médico. Ante cualquier duda, no dudes en consultarnos.';
 
   try {
-    await dbRespondRequest(requestId, response);
+    await dbRespondRequest(requestId, mensajeNotificacion);
     closeModal();
-    showToast('Respuesta enviada', 'success');
+    showToast('✓ Paciente notificado correctamente', 'success');
     renderSolicitudesPendientes();
   } catch {
-    showAlert(errEl, 'Error al responder. Intentá nuevamente.');
+    const errEl = document.getElementById('notif-error');
+    if (errEl) showAlert(errEl, 'Error al notificar. Intentá nuevamente.');
   }
 }
 
