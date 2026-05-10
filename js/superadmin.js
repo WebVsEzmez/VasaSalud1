@@ -90,35 +90,223 @@ async function confirmDeleteUser(userId, name) {
 // ===== TODOS ADMINS =====
 async function renderTodosAdmins() {
   const container = document.getElementById('super-sections');
-  container.innerHTML = sectionPanelHTML('Administradores', 'Médicas y enfermeras', `<div class="loading-center"><div class="spinner"></div></div>`);
+  container.innerHTML = sectionPanelHTML('Administradores', 'Médicas y enfermeras registradas', `<div class="loading-center"><div class="spinner"></div></div>`);
 
   try {
     const admins = await dbGetAllAdmins();
     const body = document.querySelector('#super-sections .section-body');
+    window._gestionAdmins = admins;
 
     if (!admins.length) {
       body.innerHTML = emptyStateHTML('Sin administradores', 'No hay admins registrados todavía');
       return;
     }
 
-    body.innerHTML = `<ul class="patient-list">${admins.map(a => adminItemHTML(a)).join('')}</ul>`;
+    body.innerHTML = `
+      <div class="search-bar" style="margin-bottom:16px">
+        <svg viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z" fill="currentColor"/></svg>
+        <input type="text" id="gestion-admin-search" placeholder="Buscar por nombre, DNI o email..." oninput="filtrarGestionAdmins()" />
+      </div>
+      <div id="gestion-admin-lista">
+        ${admins.map(a => gestionAdminCardHTML(a)).join('')}
+      </div>
+    `;
   } catch {
     showToast('Error al cargar', 'error');
   }
 }
 
-function adminItemHTML(a) {
+function filtrarGestionAdmins() {
+  const q = document.getElementById('gestion-admin-search')?.value?.toLowerCase() || '';
+  const filtered = (window._gestionAdmins || []).filter(a =>
+    (a.full_name || '').toLowerCase().includes(q) ||
+    (a.email || '').toLowerCase().includes(q) ||
+    (a.dni || '').includes(q)
+  );
+  const lista = document.getElementById('gestion-admin-lista');
+  if (lista) lista.innerHTML = filtered.map(a => gestionAdminCardHTML(a)).join('');
+}
+
+function gestionAdminCardHTML(a) {
   const initials = (a.full_name || a.email || 'A').split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase();
+  const isActive = a.active !== false;
+
   return `
-    <li class="patient-item">
-      <div class="patient-avatar admin-avatar">${initials}</div>
-      <div class="patient-info">
-        <div class="patient-name">${a.full_name || 'Sin nombre'}</div>
-        <div class="patient-detail">${a.email}</div>
+    <div class="gestion-card" id="gacard-${a.id}" style="${!isActive ? 'opacity:0.6' : ''}">
+      <div class="gestion-card-top">
+        <div style="display:flex;align-items:center;gap:12px">
+          <div class="patient-avatar admin-avatar" style="${!isActive ? 'background:var(--gray-300);color:var(--gray-500)' : ''}">${initials}</div>
+          <div>
+            <div style="font-family:var(--font-heading);font-weight:800;font-size:15px;color:var(--gray-800)">${a.full_name || 'Sin nombre'}</div>
+            <div style="font-size:12px;color:var(--gray-500)">${a.email}</div>
+          </div>
+        </div>
+        <div style="display:flex;flex-direction:column;align-items:flex-end;gap:6px;flex-shrink:0">
+          <span class="role-badge admin-badge">Admin</span>
+          <span class="status-badge ${isActive ? 'status-responded' : 'status-pending'}" style="font-size:11px">
+            ${isActive ? '✓ Activo' : '✗ Inactivo'}
+          </span>
+        </div>
       </div>
-      <span class="role-badge admin-badge">Admin</span>
-    </li>
+
+      <!-- Datos del perfil -->
+      <div class="gestion-datos">
+        <div class="gestion-dato">
+          <span class="gestion-dato-label">DNI</span>
+          <span class="gestion-dato-val">${a.dni || '—'}</span>
+        </div>
+        <div class="gestion-dato">
+          <span class="gestion-dato-label">Celular</span>
+          <span class="gestion-dato-val">${a.phone || '—'}</span>
+        </div>
+        <div class="gestion-dato">
+          <span class="gestion-dato-label">Nacimiento</span>
+          <span class="gestion-dato-val">${a.birthdate ? formatDate(a.birthdate) : '—'}</span>
+        </div>
+        <div class="gestion-dato">
+          <span class="gestion-dato-label">Obra Social</span>
+          <span class="gestion-dato-val">${a.obra_social || '—'}</span>
+        </div>
+        <div class="gestion-dato">
+          <span class="gestion-dato-label">Plan</span>
+          <span class="gestion-dato-val">${a.plan || '—'}</span>
+        </div>
+        <div class="gestion-dato">
+          <span class="gestion-dato-label">N° Afiliado</span>
+          <span class="gestion-dato-val">${a.nro_afiliado || '—'}</span>
+        </div>
+      </div>
+
+      <!-- Acciones -->
+      <div style="display:flex;gap:8px;flex-wrap:wrap;border-top:1px solid var(--gray-100);padding-top:12px">
+        <button class="btn btn-outline btn-sm" onclick="abrirEditarAdmin('${a.id}')">
+          <svg viewBox="0 0 24 24"><path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04c.39-.39.39-1.02 0-1.41l-2.34-2.34c-.39-.39-1.02-.39-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z" fill="currentColor"/></svg>
+          Editar datos
+        </button>
+        <button class="btn btn-sm ${isActive ? 'btn-danger' : 'btn-success'}" onclick="toggleActivarAdmin('${a.id}', ${isActive})">
+          <svg viewBox="0 0 24 24"><path d="${isActive
+            ? 'M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 14H9V8h2v8zm4 0h-2V8h2v8z'
+            : 'M8 5v14l11-7z'}" fill="currentColor"/></svg>
+          ${isActive ? 'Desactivar' : 'Activar'}
+        </button>
+        <button class="btn btn-secondary btn-sm" onclick="cambiarRolAdminModal('${a.id}', '${(a.full_name||'').replace(/'/g,'')}', '${a.role}')">
+          <svg viewBox="0 0 24 24"><path d="M12 1L3 5v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V5l-9-4z" fill="currentColor"/></svg>
+          Cambiar rol
+        </button>
+      </div>
+    </div>
   `;
+}
+
+async function toggleActivarAdmin(adminId, currentlyActive) {
+  const nuevoEstado = !currentlyActive;
+  const accion = nuevoEstado ? 'activar' : 'desactivar';
+  if (!confirm(`¿Querés ${accion} este administrador?`)) return;
+
+  try {
+    const sb = getSupabase();
+    const { error } = await sb.from('profiles').update({ active: nuevoEstado }).eq('id', adminId);
+    if (error) throw error;
+
+    const idx = (window._gestionAdmins || []).findIndex(a => a.id === adminId);
+    if (idx !== -1) window._gestionAdmins[idx].active = nuevoEstado;
+
+    showToast(`Admin ${nuevoEstado ? 'activado' : 'desactivado'}`, nuevoEstado ? 'success' : 'info');
+    renderTodosAdmins();
+  } catch {
+    showToast('Error al actualizar estado', 'error');
+  }
+}
+
+function abrirEditarAdmin(adminId) {
+  const a = (window._gestionAdmins || []).find(a => a.id === adminId);
+  if (!a) return;
+
+  openModal(`
+    <h2 class="modal-title">Editar Administrador</h2>
+    <p class="modal-subtitle">${a.email}</p>
+    <div id="edit-admin-error" class="alert alert-error hidden"></div>
+    <div id="edit-admin-success" class="alert alert-success hidden"></div>
+
+    <div class="form-group"><label>Nombre y Apellido</label><input type="text" id="ea-name" value="${a.full_name || ''}" /></div>
+    <div class="profile-info-row">
+      <div class="form-group"><label>DNI</label><input type="text" id="ea-dni" value="${a.dni || ''}" /></div>
+      <div class="form-group"><label>Fecha de nacimiento</label><input type="date" id="ea-birth" value="${a.birthdate || ''}" /></div>
+    </div>
+    <div class="form-group"><label>Obra Social</label><input type="text" id="ea-os" value="${a.obra_social || ''}" /></div>
+    <div class="profile-info-row">
+      <div class="form-group"><label>Plan</label><input type="text" id="ea-plan" value="${a.plan || ''}" /></div>
+      <div class="form-group"><label>N° Afiliado</label><input type="text" id="ea-afil" value="${a.nro_afiliado || ''}" /></div>
+    </div>
+    <div class="form-group"><label>Celular</label><input type="tel" id="ea-phone" value="${a.phone || ''}" /></div>
+
+    <button class="btn btn-primary btn-full mt-12" onclick="guardarEdicionAdmin('${adminId}')">
+      <svg viewBox="0 0 24 24"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z" fill="currentColor"/></svg>
+      Guardar Cambios
+    </button>
+  `);
+}
+
+async function guardarEdicionAdmin(adminId) {
+  const errEl = document.getElementById('edit-admin-error');
+  const sucEl = document.getElementById('edit-admin-success');
+
+  const updates = {
+    full_name: document.getElementById('ea-name')?.value?.trim(),
+    dni: document.getElementById('ea-dni')?.value?.trim(),
+    birthdate: document.getElementById('ea-birth')?.value || null,
+    obra_social: document.getElementById('ea-os')?.value?.trim(),
+    plan: document.getElementById('ea-plan')?.value?.trim(),
+    nro_afiliado: document.getElementById('ea-afil')?.value?.trim(),
+    phone: document.getElementById('ea-phone')?.value?.trim(),
+  };
+
+  try {
+    const sb = getSupabase();
+    const { error } = await sb.from('profiles').update(updates).eq('id', adminId);
+    if (error) throw error;
+
+    const idx = (window._gestionAdmins || []).findIndex(a => a.id === adminId);
+    if (idx !== -1) window._gestionAdmins[idx] = { ...window._gestionAdmins[idx], ...updates };
+
+    errEl.classList.add('hidden');
+    showAlert(sucEl, '✓ Datos actualizados correctamente.');
+    setTimeout(() => { closeModal(); renderTodosAdmins(); }, 1200);
+  } catch {
+    showAlert(errEl, 'Error al guardar. Intentá nuevamente.');
+  }
+}
+
+function cambiarRolAdminModal(adminId, name, currentRole) {
+  openModal(`
+    <h2 class="modal-title">Cambiar Rol</h2>
+    <p class="modal-subtitle"><b>${name}</b> · Rol actual: <b>${currentRole}</b></p>
+    <div class="form-group mt-12">
+      <label>Nuevo rol</label>
+      <select id="nuevo-rol-select" style="width:100%;padding:12px 14px;border:2px solid var(--gray-200);border-radius:10px;font-size:15px;outline:none;background:white">
+        <option value="user" ${currentRole==='user'?'selected':''}>Usuario (trabajador)</option>
+        <option value="admin" ${currentRole==='admin'?'selected':''}>Administrador (Médica/Enfermera)</option>
+      </select>
+    </div>
+    <button class="btn btn-primary btn-full mt-12" onclick="aplicarCambioRolAdmin('${adminId}')">Aplicar Cambio</button>
+  `);
+}
+
+async function aplicarCambioRolAdmin(adminId) {
+  const newRole = document.getElementById('nuevo-rol-select')?.value;
+  if (!newRole) return;
+
+  try {
+    const sb = getSupabase();
+    const { error } = await sb.from('profiles').update({ role: newRole }).eq('id', adminId);
+    if (error) throw error;
+
+    closeModal();
+    showToast(`Rol actualizado a ${newRole}`, 'success');
+    renderTodosAdmins();
+  } catch {
+    showToast('Error al cambiar rol', 'error');
+  }
 }
 
 // ===== TODAS SOLICITUDES =====
@@ -334,7 +522,6 @@ function renderCrearAdmin() {
       <label>Tipo de rol</label>
       <select id="ca-role" style="width:100%;padding:12px 14px;border:2px solid var(--gray-200);border-radius:10px;font-size:15px;outline:none;background:white;color:var(--gray-800)">
         <option value="admin">Administrador (Médica/Enfermera)</option>
-        <option value="super_admin">Super Administrador</option>
         <option value="user">Usuario (trabajador)</option>
       </select>
     </div>
@@ -412,7 +599,6 @@ function profileRoleItemHTML(p) {
           style="padding:6px 8px;border:2px solid var(--gray-200);border-radius:8px;font-size:12px;font-weight:600;outline:none;cursor:pointer;background:white">
           <option value="user" ${p.role === 'user' ? 'selected' : ''}>Usuario</option>
           <option value="admin" ${p.role === 'admin' ? 'selected' : ''}>Admin</option>
-          <option value="super_admin" ${p.role === 'super_admin' ? 'selected' : ''}>Super Admin</option>
         </select>
       </div>
     </li>
