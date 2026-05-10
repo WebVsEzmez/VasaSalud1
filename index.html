@@ -1,408 +1,461 @@
-<!DOCTYPE html>
-<html lang="es">
-<head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>VasaSalud · Salud & Bienestar</title>
-  <link rel="preconnect" href="https://fonts.googleapis.com" />
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;500;600;700;800;900&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="css/main.css" />
-  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Ccircle cx='16' cy='16' r='16' fill='%2300b4c8'/%3E%3Cpath d='M16 8l-2 6H8l5 4-2 6 5-4 5 4-2-6 5-4h-6z' fill='white'/%3E%3C/svg%3E" />
-  <!-- Supabase JS - cargado antes que todo el resto -->
-  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
-</head>
-<body>
+// === USER MODULE ===
 
-  <!-- LOADING SCREEN -->
-  <div id="loading-screen" class="loading-screen">
-    <div class="loading-logo">
-      <svg viewBox="0 0 80 80" fill="none" xmlns="http://www.w3.org/2000/svg">
-        <path d="M10 55 L40 10 L70 55" stroke="white" stroke-width="8" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
-        <path d="M52 38 Q60 28 68 38" stroke="white" stroke-width="5" stroke-linecap="round" fill="none"/>
-        <path d="M60 30 L60 30" stroke="white" stroke-width="5" stroke-linecap="round"/>
-        <circle cx="60" cy="26" r="8" fill="white" opacity="0.9"/>
-        <path d="M57 26 L59.5 28.5 L64 24" stroke="#00b4c8" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-      </svg>
-      <span>VasaSalud</span>
-    </div>
-    <div class="loading-dots">
-      <span></span><span></span><span></span>
-    </div>
-  </div>
+let userSectionActive = null;
 
-  <!-- APP CONTAINER -->
-  <div id="app" class="app hidden">
+function showUserSection(sectionName) {
+  const container = document.getElementById('user-sections');
+  if (!container) return;
 
-    <!-- AUTH SECTION -->
-    <div id="auth-section">
-      <!-- LOGIN PAGE -->
-      <div id="login-page" class="auth-page active">
-        <div class="auth-bg">
-          <div class="auth-wave"></div>
-        </div>
-        <div class="auth-container">
-          <div class="auth-logo">
-            <div class="logo-icon">
-              <svg viewBox="0 0 60 60" fill="none" xmlns="http://www.w3.org/2000/svg">
-                <path d="M8 42 L30 8 L52 42" stroke="white" stroke-width="6" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
-                <circle cx="46" cy="20" r="10" fill="white" opacity="0.95"/>
-                <path d="M42 20 L45 23 L51 17" stroke="#00b4c8" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
-              </svg>
-            </div>
-            <div class="logo-text">
-              <span class="logo-vasa">VASA</span><span class="logo-salud">SALUD</span>
-              <small>Salud & Bienestar</small>
-            </div>
-          </div>
+  if (userSectionActive === sectionName) {
+    container.innerHTML = '';
+    userSectionActive = null;
+    return;
+  }
+  userSectionActive = sectionName;
 
-          <div class="auth-card">
-            <h2>Bienvenido</h2>
-            <p class="auth-subtitle">Ingresá con tu cuenta</p>
+  switch (sectionName) {
+    case 'mis-solicitudes': renderMisSolicitudes(); break;
+    case 'mi-familia': renderMiFamilia(); break;
+    case 'pedir-receta': renderPedirReceta(); break;
+    case 'pedir-orden': renderPedirOrden(); break;
+    case 'transcripcion': renderTranscripcion(); break;
+  }
+}
 
-            <div id="login-error" class="alert alert-error hidden"></div>
+// ===== MIS SOLICITUDES =====
+async function renderMisSolicitudes() {
+  const container = document.getElementById('user-sections');
+  container.innerHTML = sectionPanelHTML('Mis Solicitudes', 'Historial de tus pedidos', `<div class="loading-center"><div class="spinner"></div></div>`);
 
-            <div class="form-group">
-              <label for="login-email">Correo electrónico</label>
-              <div class="input-wrapper">
-                <svg class="input-icon" viewBox="0 0 24 24"><path d="M20 4H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm0 4l-8 5-8-5V6l8 5 8-5v2z" fill="currentColor"/></svg>
-                <input type="email" id="login-email" placeholder="correo@ejemplo.com" autocomplete="email" />
-              </div>
-            </div>
+  try {
+    const requests = await dbGetUserRequests(currentUser.id);
+    const body = document.querySelector('#user-sections .section-body');
 
-            <div class="form-group">
-              <label for="login-password">Contraseña</label>
-              <div class="input-wrapper">
-                <svg class="input-icon" viewBox="0 0 24 24"><path d="M18 8h-1V6c0-2.76-2.24-5-5-5S7 3.24 7 6v2H6c-1.1 0-2 .9-2 2v10c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V10c0-1.1-.9-2-2-2zm-6 9c-1.1 0-2-.9-2-2s.9-2 2-2 2 .9 2 2-.9 2-2 2zm3.1-9H8.9V6c0-1.71 1.39-3.1 3.1-3.1 1.71 0 3.1 1.39 3.1 3.1v2z" fill="currentColor"/></svg>
-                <input type="password" id="login-password" placeholder="Tu contraseña" autocomplete="current-password" />
-                <button type="button" class="toggle-password" onclick="togglePassword('login-password', this)">
-                  <svg viewBox="0 0 24 24"><path d="M12 4.5C7 4.5 2.73 7.61 1 12c1.73 4.39 6 7.5 11 7.5s9.27-3.11 11-7.5c-1.73-4.39-6-7.5-11-7.5zM12 17c-2.76 0-5-2.24-5-5s2.24-5 5-5 5 2.24 5 5-2.24 5-5 5zm0-8c-1.66 0-3 1.34-3 3s1.34 3 3 3 3-1.34 3-3-1.34-3-3-3z" fill="currentColor"/></svg>
-                </button>
-              </div>
-            </div>
+    if (!requests.length) {
+      body.innerHTML = emptyStateHTML('No tenés solicitudes', 'Tus pedidos aparecerán aquí');
+      return;
+    }
 
-            <button class="btn btn-primary btn-full" onclick="handleLogin()">
-              <span>Ingresar</span>
-              <svg viewBox="0 0 24 24"><path d="M12 4l-1.41 1.41L16.17 11H4v2h12.17l-5.58 5.59L12 20l8-8z" fill="currentColor"/></svg>
-            </button>
+    body.innerHTML = requests.map(r => requestCardHTML(r)).join('');
+  } catch (e) {
+    showToast('Error al cargar solicitudes', 'error');
+  }
+}
 
-            <div class="auth-links">
-              <a href="#" onclick="showPage('forgot-page')">¿Olvidaste tu contraseña?</a>
-              <span class="divider">·</span>
-              <a href="#" onclick="showPage('register-page')">Crear cuenta</a>
-            </div>
-          </div>
+// ===== MI FAMILIA =====
+async function renderMiFamilia() {
+  const container = document.getElementById('user-sections');
+  container.innerHTML = sectionPanelHTML(
+    'Mi Familia',
+    'Familiares registrados',
+    `<div class="loading-center"><div class="spinner"></div></div>`,
+    `<button class="btn btn-primary btn-sm" onclick="openAddFamiliarModal()">+ Agregar</button>`
+  );
+
+  try {
+    const members = await dbGetFamilyMembers(currentUser.id);
+    const body = document.querySelector('#user-sections .section-body');
+
+    if (!members.length) {
+      body.innerHTML = emptyStateHTML('Sin familiares', 'Agregá tus familiares para tenerlos registrados');
+      return;
+    }
+
+    body.innerHTML = `<div class="family-list">${members.map(m => familyItemHTML(m)).join('')}</div>`;
+  } catch (e) {
+    showToast('Error al cargar familiares', 'error');
+  }
+}
+
+function familyItemHTML(m) {
+  const initials = m.name.split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase();
+  return `
+    <div class="family-item">
+      <div class="family-info">
+        <div class="family-avatar">${initials}</div>
+        <div>
+          <div style="font-weight:700;font-size:15px;color:var(--gray-800)">${m.name}</div>
+          <div style="font-size:12px;color:var(--gray-500)">DNI: ${m.dni || '—'} · Edad: ${m.age || '—'}</div>
         </div>
       </div>
+      <button class="btn btn-danger btn-sm" onclick="deleteFamiliar('${m.id}')">
+        <svg viewBox="0 0 24 24"><path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z" fill="currentColor"/></svg>
+      </button>
+    </div>`;
+}
 
-      <!-- REGISTER PAGE -->
-      <div id="register-page" class="auth-page">
-        <div class="auth-bg"><div class="auth-wave"></div></div>
-        <div class="auth-container">
-          <div class="auth-logo">
-            <div class="logo-icon">
-              <svg viewBox="0 0 60 60" fill="none"><path d="M8 42 L30 8 L52 42" stroke="white" stroke-width="6" stroke-linecap="round" stroke-linejoin="round" fill="none"/><circle cx="46" cy="20" r="10" fill="white" opacity="0.95"/><path d="M42 20 L45 23 L51 17" stroke="#00b4c8" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
-            </div>
-            <div class="logo-text">
-              <span class="logo-vasa">VASA</span><span class="logo-salud">SALUD</span>
-              <small>Salud & Bienestar</small>
-            </div>
-          </div>
+function openAddFamiliarModal() {
+  openModal(`
+    <h2 class="modal-title">Agregar Familiar</h2>
+    <p class="modal-subtitle">Ingresá los datos del familiar</p>
+    <div id="familiar-error" class="alert alert-error hidden"></div>
+    <div class="form-group"><label>Nombre y Apellido</label><input type="text" id="fam-name" placeholder="María Pérez" /></div>
+    <div class="profile-info-row">
+      <div class="form-group"><label>DNI</label><input type="text" id="fam-dni" placeholder="12345678" /></div>
+      <div class="form-group"><label>Edad</label><input type="number" id="fam-age" placeholder="35" min="0" max="120" /></div>
+    </div>
+    <button class="btn btn-primary btn-full mt-12" onclick="addFamiliar()">Guardar Familiar</button>
+  `);
+}
 
-          <div class="auth-card">
-            <h2>Crear Cuenta</h2>
-            <p class="auth-subtitle">Completá tus datos para registrarte</p>
+async function addFamiliar() {
+  const name = document.getElementById('fam-name')?.value?.trim();
+  const dni = document.getElementById('fam-dni')?.value?.trim();
+  const age = document.getElementById('fam-age')?.value?.trim();
+  const errEl = document.getElementById('familiar-error');
 
-            <div id="register-error" class="alert alert-error hidden"></div>
-            <div id="register-success" class="alert alert-success hidden"></div>
+  if (!name) { showAlert(errEl, 'El nombre es obligatorio.'); return; }
 
-            <div class="form-group">
-              <label>Nombre y Apellido</label>
-              <div class="input-wrapper">
-                <svg class="input-icon" viewBox="0 0 24 24"><path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z" fill="currentColor"/></svg>
-                <input type="text" id="reg-name" placeholder="Juan Pérez" />
-              </div>
-            </div>
+  try {
+    await dbAddFamilyMember({ user_id: currentUser.id, name, dni, age: age ? parseInt(age) : null });
+    closeModal();
+    showToast('Familiar agregado', 'success');
+    renderMiFamilia();
+  } catch (e) {
+    showAlert(errEl, 'Error al guardar. Intentá nuevamente.');
+  }
+}
 
-            <div class="form-group">
-              <label>Correo electrónico</label>
-              <div class="input-wrapper">
-                <svg class="input-icon" viewBox="0 0 24 24"><path d="M20 4H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm0 4l-8 5-8-5V6l8 5 8-5v2z" fill="currentColor"/></svg>
-                <input type="email" id="reg-email" placeholder="correo@ejemplo.com" />
-              </div>
-            </div>
+async function deleteFamiliar(id) {
+  if (!confirm('¿Eliminar este familiar?')) return;
+  try {
+    await dbDeleteFamilyMember(id);
+    showToast('Familiar eliminado', 'info');
+    renderMiFamilia();
+  } catch {
+    showToast('Error al eliminar', 'error');
+  }
+}
 
-            <div class="form-group">
-              <label>Contraseña</label>
-              <div class="input-wrapper">
-                <svg class="input-icon" viewBox="0 0 24 24"><path d="M18 8h-1V6c0-2.76-2.24-5-5-5S7 3.24 7 6v2H6c-1.1 0-2 .9-2 2v10c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V10c0-1.1-.9-2-2-2zm-6 9c-1.1 0-2-.9-2-2s.9-2 2-2 2 .9 2 2-.9 2-2 2zm3.1-9H8.9V6c0-1.71 1.39-3.1 3.1-3.1 1.71 0 3.1 1.39 3.1 3.1v2z" fill="currentColor"/></svg>
-                <input type="password" id="reg-password" placeholder="Mínimo 6 caracteres" />
-                <button type="button" class="toggle-password" onclick="togglePassword('reg-password', this)">
-                  <svg viewBox="0 0 24 24"><path d="M12 4.5C7 4.5 2.73 7.61 1 12c1.73 4.39 6 7.5 11 7.5s9.27-3.11 11-7.5c-1.73-4.39-6-7.5-11-7.5zM12 17c-2.76 0-5-2.24-5-5s2.24-5 5-5 5 2.24 5 5-2.24 5-5 5zm0-8c-1.66 0-3 1.34-3 3s1.34 3 3 3 3-1.34 3-3-1.34-3-3-3z" fill="currentColor"/></svg>
-                </button>
-              </div>
-            </div>
+// ===== PEDIR RECETA =====
+function renderPedirReceta() {
+  const container = document.getElementById('user-sections');
+  container.innerHTML = sectionPanelHTML('Pedir Receta', 'Indicá la medicación que necesitás', `
+    <div id="receta-error" class="alert alert-error hidden"></div>
+    <div id="receta-success" class="alert alert-success hidden"></div>
+    <div class="form-group"><label>Nombre del Fármaco</label><input type="text" id="rec-farmaco" placeholder="Ej: Ibuprofeno" /></div>
+    <div class="profile-info-row">
+      <div class="form-group"><label>Dosis</label><input type="text" id="rec-dosis" placeholder="Ej: 400mg" /></div>
+      <div class="form-group"><label>Cantidad</label><input type="text" id="rec-cantidad" placeholder="Ej: 20 comprimidos" /></div>
+    </div>
+    <div class="form-group"><label>Observaciones (opcional)</label><textarea id="rec-obs" placeholder="Indicaciones adicionales..."></textarea></div>
+    <button class="btn btn-primary btn-full mt-8" onclick="enviarReceta()">
+      <svg viewBox="0 0 24 24"><path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z" fill="currentColor"/></svg>
+      Enviar Solicitud
+    </button>
+  `);
+}
 
-            <div class="form-group">
-              <label>Confirmar Contraseña</label>
-              <div class="input-wrapper">
-                <svg class="input-icon" viewBox="0 0 24 24"><path d="M18 8h-1V6c0-2.76-2.24-5-5-5S7 3.24 7 6v2H6c-1.1 0-2 .9-2 2v10c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V10c0-1.1-.9-2-2-2zm-6 9c-1.1 0-2-.9-2-2s.9-2 2-2 2 .9 2 2-.9 2-2 2zm3.1-9H8.9V6c0-1.71 1.39-3.1 3.1-3.1 1.71 0 3.1 1.39 3.1 3.1v2z" fill="currentColor"/></svg>
-                <input type="password" id="reg-password-confirm" placeholder="Repetí tu contraseña" />
-                <button type="button" class="toggle-password" onclick="togglePassword('reg-password-confirm', this)">
-                  <svg viewBox="0 0 24 24"><path d="M12 4.5C7 4.5 2.73 7.61 1 12c1.73 4.39 6 7.5 11 7.5s9.27-3.11 11-7.5c-1.73-4.39-6-7.5-11-7.5zM12 17c-2.76 0-5-2.24-5-5s2.24-5 5-5 5 2.24 5 5-2.24 5-5 5zm0-8c-1.66 0-3 1.34-3 3s1.34 3 3 3 3-1.34 3-3-1.34-3-3-3z" fill="currentColor"/></svg>
-                </button>
-              </div>
-            </div>
+async function enviarReceta() {
+  const farmaco = document.getElementById('rec-farmaco')?.value?.trim();
+  const dosis = document.getElementById('rec-dosis')?.value?.trim();
+  const cantidad = document.getElementById('rec-cantidad')?.value?.trim();
+  const obs = document.getElementById('rec-obs')?.value?.trim();
+  const errEl = document.getElementById('receta-error');
+  const sucEl = document.getElementById('receta-success');
 
-            <button class="btn btn-primary btn-full" onclick="handleRegister()">
-              <span>Registrarme</span>
-              <svg viewBox="0 0 24 24"><path d="M12 4l-1.41 1.41L16.17 11H4v2h12.17l-5.58 5.59L12 20l8-8z" fill="currentColor"/></svg>
-            </button>
+  if (!farmaco || !dosis || !cantidad) {
+    showAlert(errEl, 'Completá fármaco, dosis y cantidad.');
+    return;
+  }
 
-            <div class="auth-links">
-              <a href="#" onclick="showPage('login-page')">Ya tengo cuenta</a>
-            </div>
-          </div>
-        </div>
+  try {
+    await dbCreateRequest({
+      user_id: currentUser.id,
+      type: 'receta',
+      status: 'pending',
+      details: JSON.stringify({ farmaco, dosis, cantidad, observaciones: obs }),
+      title: `Receta: ${farmaco} ${dosis}`
+    });
+    errEl.classList.add('hidden');
+    showAlert(sucEl, '✓ Solicitud enviada. El médico responderá a la brevedad.');
+    ['rec-farmaco','rec-dosis','rec-cantidad','rec-obs'].forEach(id => {
+      const el = document.getElementById(id);
+      if (el) el.value = '';
+    });
+    updateSolicitudesBadge();
+  } catch (e) {
+    showAlert(errEl, 'Error al enviar. Intentá nuevamente.');
+  }
+}
+
+// ===== PEDIR ORDEN =====
+function renderPedirOrden() {
+  const container = document.getElementById('user-sections');
+  container.innerHTML = sectionPanelHTML('Pedir Orden Médica', 'Indicá qué orden necesitás', `
+    <div id="orden-error" class="alert alert-error hidden"></div>
+    <div id="orden-success" class="alert alert-success hidden"></div>
+    <div class="form-group"><label>Detalle de la Orden</label><textarea id="ord-detalle" rows="4" placeholder="Describí qué orden médica necesitás (estudios, derivaciones, etc.)..."></textarea></div>
+    <div class="form-group"><label>Observaciones adicionales (opcional)</label><textarea id="ord-obs" placeholder="Más información..."></textarea></div>
+    <button class="btn btn-primary btn-full mt-8" onclick="enviarOrden()">
+      <svg viewBox="0 0 24 24"><path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z" fill="currentColor"/></svg>
+      Enviar Solicitud
+    </button>
+  `);
+}
+
+async function enviarOrden() {
+  const detalle = document.getElementById('ord-detalle')?.value?.trim();
+  const obs = document.getElementById('ord-obs')?.value?.trim();
+  const errEl = document.getElementById('orden-error');
+  const sucEl = document.getElementById('orden-success');
+
+  if (!detalle) { showAlert(errEl, 'Describí la orden que necesitás.'); return; }
+
+  try {
+    await dbCreateRequest({
+      user_id: currentUser.id,
+      type: 'orden',
+      status: 'pending',
+      details: JSON.stringify({ detalle, observaciones: obs }),
+      title: 'Orden Médica'
+    });
+    errEl.classList.add('hidden');
+    showAlert(sucEl, '✓ Solicitud enviada. El médico responderá a la brevedad.');
+    document.getElementById('ord-detalle').value = '';
+    if (document.getElementById('ord-obs')) document.getElementById('ord-obs').value = '';
+    updateSolicitudesBadge();
+  } catch (e) {
+    showAlert(errEl, 'Error al enviar. Intentá nuevamente.');
+  }
+}
+
+// ===== TRANSCRIPCION =====
+let transcripcionFile = null;
+
+function renderTranscripcion() {
+  const container = document.getElementById('user-sections');
+  container.innerHTML = sectionPanelHTML('Transcripción de Receta', 'Subí la foto de tu receta', `
+    <div id="trans-error" class="alert alert-error hidden"></div>
+    <div id="trans-success" class="alert alert-success hidden"></div>
+    <div class="upload-area" onclick="document.getElementById('trans-file').click()">
+      <svg viewBox="0 0 24 24"><path d="M19.35 10.04C18.67 6.59 15.64 4 12 4 9.11 4 6.6 5.64 5.35 8.04 2.34 8.36 0 10.91 0 14c0 3.31 2.69 6 6 6h13c2.76 0 5-2.24 5-5 0-2.64-2.05-4.78-4.65-4.96zM14 13v4h-4v-4H7l5-5 5 5h-3z" fill="currentColor"/></svg>
+      <p>Tocá para seleccionar una foto</p>
+      <small>JPG, PNG, PDF · Máx. 5 MB</small>
+    </div>
+    <input type="file" id="trans-file" accept="image/*,.pdf" style="display:none" onchange="previewTranscripcion(this)" />
+    <div id="trans-preview" class="upload-preview" style="display:none"></div>
+    <div class="form-group mt-12"><label>Observaciones (opcional)</label><textarea id="trans-obs" placeholder="Alguna aclaración sobre la receta..."></textarea></div>
+    <button class="btn btn-primary btn-full mt-8" onclick="enviarTranscripcion()">
+      <svg viewBox="0 0 24 24"><path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z" fill="currentColor"/></svg>
+      Enviar Transcripción
+    </button>
+  `);
+}
+
+function previewTranscripcion(input) {
+  if (!input.files?.[0]) return;
+  const file = input.files[0];
+  transcripcionFile = file;
+
+  if (file.size > 5 * 1024 * 1024) {
+    showToast('El archivo supera los 5 MB', 'error');
+    transcripcionFile = null;
+    return;
+  }
+
+  const preview = document.getElementById('trans-preview');
+  if (file.type.startsWith('image/')) {
+    const reader = new FileReader();
+    reader.onload = e => {
+      preview.style.display = 'block';
+      preview.innerHTML = `<img src="${e.target.result}" alt="Vista previa" />`;
+    };
+    reader.readAsDataURL(file);
+  } else {
+    preview.style.display = 'block';
+    preview.innerHTML = `<div style="padding:12px;background:var(--gray-100);border-radius:8px;font-size:14px;color:var(--gray-700)">📄 ${file.name}</div>`;
+  }
+}
+
+async function enviarTranscripcion() {
+  const obs = document.getElementById('trans-obs')?.value?.trim();
+  const errEl = document.getElementById('trans-error');
+  const sucEl = document.getElementById('trans-success');
+
+  if (!transcripcionFile) {
+    showAlert(errEl, 'Seleccioná una imagen o PDF de tu receta.');
+    return;
+  }
+
+  const btn = document.querySelector('#user-sections .btn-primary');
+  if (btn) { btn.disabled = true; btn.textContent = 'Subiendo...'; }
+
+  try {
+    let fileUrl = null;
+    try {
+      fileUrl = await dbUploadTranscription(transcripcionFile, currentUser.id);
+    } catch (uploadErr) {
+      // If storage not configured, save without URL
+      fileUrl = '[archivo adjunto]';
+    }
+
+    await dbCreateRequest({
+      user_id: currentUser.id,
+      type: 'transcripcion',
+      status: 'pending',
+      details: JSON.stringify({ observaciones: obs, file_url: fileUrl, file_name: transcripcionFile.name }),
+      title: 'Transcripción de Receta'
+    });
+
+    errEl.classList.add('hidden');
+    showAlert(sucEl, '✓ Transcripción enviada correctamente.');
+    transcripcionFile = null;
+    document.getElementById('trans-preview').style.display = 'none';
+    if (document.getElementById('trans-obs')) document.getElementById('trans-obs').value = '';
+    updateSolicitudesBadge();
+  } catch (e) {
+    showAlert(errEl, 'Error al enviar. Intentá nuevamente.');
+  } finally {
+    if (btn) { btn.disabled = false; }
+  }
+}
+
+// ===== PROFILE USER =====
+function renderUserProfile() {
+  return `
+    <div class="section-panel">
+      <div class="section-header">
+        <span class="section-title">Mi Perfil</span>
+        <button class="btn btn-outline btn-sm" onclick="toggleEditProfile()">Editar</button>
       </div>
-
-      <!-- FORGOT PASSWORD PAGE -->
-      <div id="forgot-page" class="auth-page">
-        <div class="auth-bg"><div class="auth-wave"></div></div>
-        <div class="auth-container">
-          <div class="auth-logo">
-            <div class="logo-icon">
-              <svg viewBox="0 0 60 60" fill="none"><path d="M8 42 L30 8 L52 42" stroke="white" stroke-width="6" stroke-linecap="round" stroke-linejoin="round" fill="none"/><circle cx="46" cy="20" r="10" fill="white" opacity="0.95"/><path d="M42 20 L45 23 L51 17" stroke="#00b4c8" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
-            </div>
-            <div class="logo-text">
-              <span class="logo-vasa">VASA</span><span class="logo-salud">SALUD</span>
-              <small>Salud & Bienestar</small>
-            </div>
-          </div>
-
-          <div class="auth-card">
-            <h2>Recuperar Contraseña</h2>
-            <p class="auth-subtitle">Te enviamos un enlace a tu correo</p>
-
-            <div id="forgot-error" class="alert alert-error hidden"></div>
-            <div id="forgot-success" class="alert alert-success hidden"></div>
-
-            <div class="form-group">
-              <label>Correo electrónico</label>
-              <div class="input-wrapper">
-                <svg class="input-icon" viewBox="0 0 24 24"><path d="M20 4H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm0 4l-8 5-8-5V6l8 5 8-5v2z" fill="currentColor"/></svg>
-                <input type="email" id="forgot-email" placeholder="correo@ejemplo.com" />
-              </div>
-            </div>
-
-            <button class="btn btn-primary btn-full" onclick="handleForgotPassword()">
-              <span>Enviar enlace</span>
-            </button>
-
-            <div class="auth-links">
-              <a href="#" onclick="showPage('login-page')">Volver al inicio</a>
-            </div>
-          </div>
-        </div>
+      <div class="section-body" id="profile-body">
+        ${profileViewHTML(currentProfile)}
       </div>
     </div>
+  `;
+}
 
-    <!-- MAIN APP (shown after login) -->
-    <div id="main-app" class="hidden">
-      <!-- TOP NAV -->
-      <nav class="top-nav">
-        <div class="nav-logo">
-          <svg viewBox="0 0 40 40" fill="none"><path d="M5 28 L20 5 L35 28" stroke="white" stroke-width="4" stroke-linecap="round" stroke-linejoin="round" fill="none"/><circle cx="30" cy="13" r="7" fill="white" opacity="0.95"/><path d="M27 13 L29.5 15.5 L34 11" stroke="#00b4c8" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
-          <span><b>VASA</b>SALUD</span>
-        </div>
-        <div class="nav-right">
-          <div class="nav-user" onclick="toggleUserMenu()">
-            <div class="nav-avatar" id="nav-avatar">VS</div>
-            <span id="nav-username">Usuario</span>
-            <svg viewBox="0 0 24 24" class="chevron"><path d="M7 10l5 5 5-5z" fill="currentColor"/></svg>
-          </div>
-          <div class="user-menu hidden" id="user-menu">
-            <button onclick="logout()">
-              <svg viewBox="0 0 24 24"><path d="M17 7l-1.41 1.41L18.17 11H8v2h10.17l-2.58 2.58L17 17l5-5zM4 5h8V3H4c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h8v-2H4V5z" fill="currentColor"/></svg>
-              Cerrar sesión
-            </button>
-          </div>
-        </div>
-      </nav>
-
-      <!-- DASHBOARD PAGES -->
-      <main class="main-content">
-
-        <!-- USER DASHBOARD -->
-        <div id="user-dashboard" class="dashboard hidden">
-          <div class="dashboard-header">
-            <div class="welcome-card">
-              <div class="welcome-avatar" id="user-avatar-big">VS</div>
-              <div class="welcome-info">
-                <h2 id="user-welcome-name">Hola!</h2>
-                <p id="user-welcome-detail">DNI · Email</p>
-                <span class="role-badge user-badge">Trabajador</span>
-              </div>
-            </div>
-          </div>
-
-          <div class="action-grid">
-            <button class="action-card" onclick="showUserSection('mis-solicitudes')">
-              <div class="action-icon teal">
-                <svg viewBox="0 0 24 24"><path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-5 14H7v-2h7v2zm3-4H7v-2h10v2zm0-4H7V7h10v2z" fill="currentColor"/></svg>
-              </div>
-              <span class="action-label">Mis Solicitudes</span>
-              <div class="action-badge" id="solicitudes-badge" style="display:none"></div>
-            </button>
-
-            <button class="action-card" onclick="showUserSection('mi-familia')">
-              <div class="action-icon blue">
-                <svg viewBox="0 0 24 24"><path d="M16 11c1.66 0 2.99-1.34 2.99-3S17.66 5 16 5c-1.66 0-3 1.34-3 3s1.34 3 3 3zm-8 0c1.66 0 2.99-1.34 2.99-3S9.66 5 8 5C6.34 5 5 6.34 5 8s1.34 3 3 3zm0 2c-2.33 0-7 1.17-7 3.5V19h14v-2.5c0-2.33-4.67-3.5-7-3.5zm8 0c-.29 0-.62.02-.97.05 1.16.84 1.97 1.97 1.97 3.45V19h6v-2.5c0-2.33-4.67-3.5-7-3.5z" fill="currentColor"/></svg>
-              </div>
-              <span class="action-label">Mi Familia</span>
-            </button>
-
-            <button class="action-card" onclick="showUserSection('pedir-receta')">
-              <div class="action-icon green">
-                <svg viewBox="0 0 24 24"><path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-7 3c1.93 0 3.5 1.57 3.5 3.5S13.93 13 12 13s-3.5-1.57-3.5-3.5S10.07 6 12 6zm7 13H5v-.23c0-.62.28-1.2.76-1.58C7.47 15.82 9.64 15 12 15s4.53.82 6.24 2.19c.48.38.76.97.76 1.58V19z" fill="currentColor"/></svg>
-              </div>
-              <span class="action-label">Pedir Receta</span>
-            </button>
-
-            <button class="action-card" onclick="showUserSection('pedir-orden')">
-              <div class="action-icon orange">
-                <svg viewBox="0 0 24 24"><path d="M14 2H6c-1.1 0-1.99.9-1.99 2L4 20c0 1.1.89 2 1.99 2H18c1.1 0 2-.9 2-2V8l-6-6zm2 16H8v-2h8v2zm0-4H8v-2h8v2zm-3-5V3.5L18.5 9H13z" fill="currentColor"/></svg>
-              </div>
-              <span class="action-label">Pedir Orden</span>
-            </button>
-
-            <button class="action-card action-card-wide" onclick="showUserSection('transcripcion')">
-              <div class="action-icon purple">
-                <svg viewBox="0 0 24 24"><path d="M21 19V5c0-1.1-.9-2-2-2H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2zM8.5 13.5l2.5 3.01L14.5 12l4.5 6H5l3.5-4.5z" fill="currentColor"/></svg>
-              </div>
-              <span class="action-label">Transcripción de Receta</span>
-            </button>
-          </div>
-
-          <!-- USER SECTIONS (dynamic) -->
-          <div id="user-sections"></div>
-        </div>
-
-        <!-- ADMIN DASHBOARD -->
-        <div id="admin-dashboard" class="dashboard hidden">
-          <div class="dashboard-header">
-            <div class="welcome-card">
-              <div class="welcome-avatar admin-avatar" id="admin-avatar-big">AD</div>
-              <div class="welcome-info">
-                <h2 id="admin-welcome-name">Panel Admin</h2>
-                <p id="admin-welcome-detail">DNI · Email</p>
-                <span class="role-badge admin-badge">Administrador</span>
-              </div>
-            </div>
-          </div>
-
-          <div class="action-grid">
-            <button class="action-card" onclick="showAdminSection('solicitudes-pendientes')">
-              <div class="action-icon orange">
-                <svg viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 14.5v-9l6 4.5-6 4.5z" fill="currentColor"/></svg>
-              </div>
-              <span class="action-label">Solicitudes Pendientes</span>
-              <div class="action-badge" id="admin-pending-badge" style="display:none"></div>
-            </button>
-
-            <button class="action-card" onclick="showAdminSection('mis-pacientes')">
-              <div class="action-icon teal">
-                <svg viewBox="0 0 24 24"><path d="M16 11c1.66 0 2.99-1.34 2.99-3S17.66 5 16 5c-1.66 0-3 1.34-3 3s1.34 3 3 3zm-8 0c1.66 0 2.99-1.34 2.99-3S9.66 5 8 5C6.34 5 5 6.34 5 8s1.34 3 3 3zm0 2c-2.33 0-7 1.17-7 3.5V19h14v-2.5c0-2.33-4.67-3.5-7-3.5zm8 0c-.29 0-.62.02-.97.05 1.16.84 1.97 1.97 1.97 3.45V19h6v-2.5c0-2.33-4.67-3.5-7-3.5z" fill="currentColor"/></svg>
-              </div>
-              <span class="action-label">Mis Pacientes</span>
-            </button>
-
-            <button class="action-card" onclick="showAdminSection('nuevo-admin')">
-              <div class="action-icon blue">
-                <svg viewBox="0 0 24 24"><path d="M15 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm-9-2V7H4v3H1v2h3v3h2v-3h3v-2H6zm9 4c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z" fill="currentColor"/></svg>
-              </div>
-              <span class="action-label">Nuevo Admin</span>
-            </button>
-
-            <button class="action-card" onclick="showAdminSection('mi-perfil-admin')">
-              <div class="action-icon green">
-                <svg viewBox="0 0 24 24"><path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z" fill="currentColor"/></svg>
-              </div>
-              <span class="action-label">Mi Perfil</span>
-            </button>
-          </div>
-
-          <div id="admin-sections"></div>
-        </div>
-
-        <!-- SUPER ADMIN DASHBOARD -->
-        <div id="superadmin-dashboard" class="dashboard hidden">
-          <div class="dashboard-header">
-            <div class="welcome-card">
-              <div class="welcome-avatar super-avatar" id="super-avatar-big">SA</div>
-              <div class="welcome-info">
-                <h2 id="super-welcome-name">Super Admin</h2>
-                <p id="super-welcome-detail">Control Global</p>
-                <span class="role-badge super-badge">Super Administrador</span>
-              </div>
-            </div>
-          </div>
-
-          <div class="action-grid">
-            <button class="action-card" onclick="showSuperSection('todos-usuarios')">
-              <div class="action-icon teal">
-                <svg viewBox="0 0 24 24"><path d="M16 11c1.66 0 2.99-1.34 2.99-3S17.66 5 16 5c-1.66 0-3 1.34-3 3s1.34 3 3 3zm-8 0c1.66 0 2.99-1.34 2.99-3S9.66 5 8 5C6.34 5 5 6.34 5 8s1.34 3 3 3zm0 2c-2.33 0-7 1.17-7 3.5V19h14v-2.5c0-2.33-4.67-3.5-7-3.5zm8 0c-.29 0-.62.02-.97.05 1.16.84 1.97 1.97 1.97 3.45V19h6v-2.5c0-2.33-4.67-3.5-7-3.5z" fill="currentColor"/></svg>
-              </div>
-              <span class="action-label">Todos los Usuarios</span>
-            </button>
-
-            <button class="action-card" onclick="showSuperSection('todos-admins')">
-              <div class="action-icon blue">
-                <svg viewBox="0 0 24 24"><path d="M12 1L3 5v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V5l-9-4z" fill="currentColor"/></svg>
-              </div>
-              <span class="action-label">Administradores</span>
-            </button>
-
-            <button class="action-card" onclick="showSuperSection('todas-solicitudes')">
-              <div class="action-icon orange">
-                <svg viewBox="0 0 24 24"><path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-5 14H7v-2h7v2zm3-4H7v-2h10v2zm0-4H7V7h10v2z" fill="currentColor"/></svg>
-              </div>
-              <span class="action-label">Todas las Solicitudes</span>
-            </button>
-
-            <button class="action-card" onclick="showSuperSection('crear-admin')">
-              <div class="action-icon green">
-                <svg viewBox="0 0 24 24"><path d="M15 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm-9-2V7H4v3H1v2h3v3h2v-3h3v-2H6zm9 4c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z" fill="currentColor"/></svg>
-              </div>
-              <span class="action-label">Crear Admin</span>
-            </button>
-          </div>
-
-          <div id="super-sections"></div>
-        </div>
-
-      </main>
+function profileViewHTML(p) {
+  if (!p) return '';
+  return `
+    <div style="display:grid;gap:14px">
+      <div class="profile-info-row">
+        <div><div style="font-size:12px;color:var(--gray-400);font-weight:600;margin-bottom:3px">NOMBRE Y APELLIDO</div><div style="font-weight:700">${p.full_name || '—'}</div></div>
+        <div><div style="font-size:12px;color:var(--gray-400);font-weight:600;margin-bottom:3px">DNI</div><div style="font-weight:700">${p.dni || '—'}</div></div>
+      </div>
+      <div><div style="font-size:12px;color:var(--gray-400);font-weight:600;margin-bottom:3px">FECHA DE NACIMIENTO</div><div style="font-weight:700">${p.birthdate ? formatDate(p.birthdate) : '—'}</div></div>
+      <div><div style="font-size:12px;color:var(--gray-400);font-weight:600;margin-bottom:3px">OBRA SOCIAL · PLAN · N° AFILIADO</div><div style="font-weight:700">${p.obra_social || '—'} · ${p.plan || '—'} · ${p.nro_afiliado || '—'}</div></div>
+      <div class="profile-info-row">
+        <div><div style="font-size:12px;color:var(--gray-400);font-weight:600;margin-bottom:3px">CELULAR</div><div style="font-weight:700">${p.phone || '—'}</div></div>
+        <div><div style="font-size:12px;color:var(--gray-400);font-weight:600;margin-bottom:3px">EMAIL</div><div style="font-weight:700;font-size:13px;word-break:break-all">${p.email || '—'}</div></div>
+      </div>
     </div>
+  `;
+}
 
-  </div>
+async function saveUserProfile() {
+  const updatedProfile = {
+    id: currentUser.id,
+    email: currentUser.email,
+    full_name: document.getElementById('p-name')?.value?.trim(),
+    dni: document.getElementById('p-dni')?.value?.trim(),
+    birthdate: document.getElementById('p-birth')?.value,
+    obra_social: document.getElementById('p-os')?.value?.trim(),
+    plan: document.getElementById('p-plan')?.value?.trim(),
+    nro_afiliado: document.getElementById('p-afil')?.value?.trim(),
+    phone: document.getElementById('p-phone')?.value?.trim(),
+    role: currentProfile?.role || VASA_CONFIG.roles.USER
+  };
 
-  <!-- MODAL -->
-  <div id="modal-overlay" class="modal-overlay hidden" onclick="closeModal()">
-    <div class="modal-box" onclick="event.stopPropagation()">
-      <button class="modal-close" onclick="closeModal()">×</button>
-      <div id="modal-content"></div>
+  try {
+    currentProfile = await dbUpsertProfile(updatedProfile);
+    updateNavUser();
+    closeModal();
+    showToast('Perfil actualizado', 'success');
+  } catch (e) {
+    showToast('Error al guardar', 'error');
+  }
+}
+
+function openEditProfileModal() {
+  const p = currentProfile || {};
+  openModal(`
+    <h2 class="modal-title">Editar Mi Perfil</h2>
+    <div id="profile-save-error" class="alert alert-error hidden"></div>
+    <div class="form-group"><label>Nombre y Apellido</label><input type="text" id="p-name" value="${p.full_name || ''}" /></div>
+    <div class="profile-info-row">
+      <div class="form-group"><label>DNI</label><input type="text" id="p-dni" value="${p.dni || ''}" /></div>
+      <div class="form-group"><label>Fecha de nacimiento</label><input type="date" id="p-birth" value="${p.birthdate || ''}" /></div>
     </div>
-  </div>
+    <div class="form-group"><label>Obra Social</label><input type="text" id="p-os" value="${p.obra_social || ''}" placeholder="OSDE, Swiss Medical..." /></div>
+    <div class="profile-info-row">
+      <div class="form-group"><label>Plan</label><input type="text" id="p-plan" value="${p.plan || ''}" /></div>
+      <div class="form-group"><label>N° Afiliado</label><input type="text" id="p-afil" value="${p.nro_afiliado || ''}" /></div>
+    </div>
+    <div class="form-group"><label>Celular</label><input type="tel" id="p-phone" value="${p.phone || ''}" placeholder="+54 9 11 1234-5678" /></div>
+    <button class="btn btn-primary btn-full mt-12" onclick="saveUserProfile()">Guardar Cambios</button>
+  `);
+}
 
-  <!-- TOAST -->
-  <div id="toast-container"></div>
+async function updateSolicitudesBadge() {
+  try {
+    const requests = await dbGetUserRequests(currentUser.id);
+    const pending = requests.filter(r => r.status === 'pending').length;
+    const badge = document.getElementById('solicitudes-badge');
+    if (badge) {
+      if (pending > 0) { badge.style.display = 'flex'; badge.textContent = pending; }
+      else { badge.style.display = 'none'; }
+    }
+  } catch {}
+}
 
-  <script src="js/config.js"></script>
-  <script src="js/supabase.js"></script>
-  <script src="js/auth.js"></script>
-  <script src="js/user.js"></script>
-  <script src="js/admin.js"></script>
-  <script src="js/superadmin.js"></script>
-  <script src="js/app.js"></script>
-</body>
-</html>
+// ===== HELPERS =====
+function requestCardHTML(r) {
+  const details = safeParseJSON(r.details);
+  const typeBadge = {
+    receta: `<span class="request-type-badge badge-receta">💊 Receta</span>`,
+    orden: `<span class="request-type-badge badge-orden">📋 Orden</span>`,
+    transcripcion: `<span class="request-type-badge badge-transcripcion">📸 Transcripción</span>`
+  }[r.type] || '';
+
+  const statusBadge = r.status === 'pending'
+    ? `<span class="status-badge status-pending">Pendiente</span>`
+    : `<span class="status-badge status-responded">Respondida</span>`;
+
+  let detailText = '';
+  if (r.type === 'receta') detailText = `${details.farmaco || ''} ${details.dosis || ''} · ${details.cantidad || ''}`;
+  if (r.type === 'orden') detailText = details.detalle?.slice(0, 80) + (details.detalle?.length > 80 ? '...' : '') || '';
+  if (r.type === 'transcripcion') detailText = 'Receta fotografiada adjunta';
+
+  const responseHTML = r.admin_response
+    ? `<div style="margin-top:10px;padding:10px;background:var(--green-light);border-radius:8px;border-left:3px solid var(--green)"><div style="font-size:12px;color:#27ae60;font-weight:700;margin-bottom:3px">RESPUESTA MÉDICA</div><div style="font-size:14px;color:var(--gray-700)">${r.admin_response}</div></div>`
+    : '';
+
+  return `
+    <div class="request-card">
+      <div class="request-card-header">
+        ${typeBadge}
+        ${statusBadge}
+      </div>
+      <div class="request-info">${detailText}</div>
+      ${responseHTML}
+      <div class="request-date">${formatDateTime(r.created_at)}</div>
+    </div>
+  `;
+}
+
+function sectionPanelHTML(title, subtitle, bodyContent, headerAction = '') {
+  return `
+    <div class="section-panel">
+      <div class="section-header">
+        <div>
+          <div class="section-title">${title}</div>
+          ${subtitle ? `<div style="font-size:12px;color:var(--gray-400);margin-top:2px">${subtitle}</div>` : ''}
+        </div>
+        ${headerAction}
+      </div>
+      <div class="section-body">${bodyContent}</div>
+    </div>
+  `;
+}
+
+function emptyStateHTML(title, desc) {
+  return `
+    <div class="empty-state">
+      <svg viewBox="0 0 24 24"><path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-7 3c1.93 0 3.5 1.57 3.5 3.5S13.93 13 12 13s-3.5-1.57-3.5-3.5S10.07 6 12 6zm7 13H5v-.23c0-.62.28-1.2.76-1.58C7.47 15.82 9.64 15 12 15s4.53.82 6.24 2.19c.48.38.76.97.76 1.58V19z" fill="currentColor"/></svg>
+      <h3>${title}</h3>
+      <p>${desc}</p>
+    </div>
+  `;
+}
