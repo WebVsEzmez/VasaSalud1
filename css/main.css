@@ -1412,3 +1412,61 @@ body {
   text-align: center;
   margin: 8px 0;
 }
+
+/* === GESTIÓN DE USUARIOS === */
+.gestion-card {
+  background: var(--white);
+  border: 1.5px solid var(--gray-200);
+  border-radius: var(--radius);
+  padding: 16px;
+  margin-bottom: 12px;
+  transition: all var(--transition);
+}
+.gestion-card:hover {
+  border-color: var(--teal);
+  box-shadow: var(--shadow-sm);
+}
+
+.gestion-card-top {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 14px;
+}
+
+.gestion-datos {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px 16px;
+  background: var(--gray-50);
+  border-radius: var(--radius-xs);
+  padding: 12px;
+  margin-bottom: 10px;
+}
+
+.gestion-dato {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.gestion-dato-label {
+  font-size: 10px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--gray-400);
+}
+
+.gestion-dato-val {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--gray-700);
+}
+
+@media (min-width: 600px) {
+  .gestion-datos {
+    grid-template-columns: repeat(3, 1fr);
+  }
+}

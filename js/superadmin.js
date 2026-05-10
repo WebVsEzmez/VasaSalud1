@@ -18,6 +18,7 @@ function showSuperSection(sectionName) {
     case 'todos-admins': renderTodosAdmins(); break;
     case 'todas-solicitudes': renderTodasSolicitudes(); break;
     case 'crear-admin': renderCrearAdmin(); break;
+    case 'gestion-usuarios': renderGestionUsuarios(); break;
   }
 }
 
@@ -471,5 +472,259 @@ async function asignarRolAdmin() {
     loadAllProfilesForRoleManagement();
   } catch (e) {
     showAlert(errEl, 'Error al asignar rol. Intentá nuevamente.');
+  }
+}
+
+// ===== GESTIÓN DE USUARIOS =====
+async function renderGestionUsuarios() {
+  const container = document.getElementById('super-sections');
+  container.innerHTML = sectionPanelHTML(
+    'Gestión de Usuarios',
+    'Administrá perfiles, estados y datos de cada trabajador',
+    `<div class="loading-center"><div class="spinner"></div></div>`
+  );
+
+  try {
+    const sb = getSupabase();
+    const { data, error } = await sb
+      .from('profiles')
+      .select('*, family_members(count)')
+      .eq('role', 'user')
+      .order('full_name');
+    if (error) throw error;
+
+    window._gestionUsuarios = data || [];
+    const body = document.querySelector('#super-sections .section-body');
+
+    if (!data || !data.length) {
+      body.innerHTML = emptyStateHTML('Sin usuarios', 'No hay trabajadores registrados');
+      return;
+    }
+
+    body.innerHTML = `
+      <div class="search-bar" style="margin-bottom:16px">
+        <svg viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z" fill="currentColor"/></svg>
+        <input type="text" id="gestion-search" placeholder="Buscar por nombre, DNI o email..." oninput="filtrarGestionUsuarios()" />
+      </div>
+      <div id="gestion-lista">
+        ${data.map(u => gestionUserCardHTML(u)).join('')}
+      </div>
+    `;
+  } catch {
+    showToast('Error al cargar usuarios', 'error');
+  }
+}
+
+function filtrarGestionUsuarios() {
+  const q = document.getElementById('gestion-search')?.value?.toLowerCase() || '';
+  const filtered = (window._gestionUsuarios || []).filter(u =>
+    (u.full_name || '').toLowerCase().includes(q) ||
+    (u.email || '').toLowerCase().includes(q) ||
+    (u.dni || '').includes(q)
+  );
+  const lista = document.getElementById('gestion-lista');
+  if (lista) lista.innerHTML = filtered.map(u => gestionUserCardHTML(u)).join('');
+}
+
+function gestionUserCardHTML(u) {
+  const initials = (u.full_name || u.email || 'U').split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase();
+  const isActive = u.active !== false; // activo por defecto
+  const familyCount = u.family_members?.[0]?.count || 0;
+
+  return `
+    <div class="gestion-card" id="gcard-${u.id}" style="${!isActive ? 'opacity:0.6' : ''}">
+      <div class="gestion-card-top">
+        <div style="display:flex;align-items:center;gap:12px">
+          <div class="patient-avatar" style="${!isActive ? 'background:var(--gray-300);color:var(--gray-500)' : ''}">${initials}</div>
+          <div>
+            <div style="font-family:var(--font-heading);font-weight:800;font-size:15px;color:var(--gray-800)">${u.full_name || 'Sin nombre'}</div>
+            <div style="font-size:12px;color:var(--gray-500)">${u.email}</div>
+          </div>
+        </div>
+        <div style="display:flex;align-items:center;gap:8px;flex-shrink:0">
+          <span class="status-badge ${isActive ? 'status-responded' : 'status-pending'}" style="font-size:11px">
+            ${isActive ? '✓ Activo' : '✗ Inactivo'}
+          </span>
+        </div>
+      </div>
+
+      <!-- Datos del perfil -->
+      <div class="gestion-datos">
+        <div class="gestion-dato">
+          <span class="gestion-dato-label">DNI</span>
+          <span class="gestion-dato-val">${u.dni || '—'}</span>
+        </div>
+        <div class="gestion-dato">
+          <span class="gestion-dato-label">Celular</span>
+          <span class="gestion-dato-val">${u.phone || '—'}</span>
+        </div>
+        <div class="gestion-dato">
+          <span class="gestion-dato-label">Nacimiento</span>
+          <span class="gestion-dato-val">${u.birthdate ? formatDate(u.birthdate) : '—'}</span>
+        </div>
+        <div class="gestion-dato">
+          <span class="gestion-dato-label">Obra Social</span>
+          <span class="gestion-dato-val">${u.obra_social || '—'}</span>
+        </div>
+        <div class="gestion-dato">
+          <span class="gestion-dato-label">Plan</span>
+          <span class="gestion-dato-val">${u.plan || '—'}</span>
+        </div>
+        <div class="gestion-dato">
+          <span class="gestion-dato-label">N° Afiliado</span>
+          <span class="gestion-dato-val">${u.nro_afiliado || '—'}</span>
+        </div>
+      </div>
+
+      <!-- Familiares -->
+      <div style="margin:10px 0 12px">
+        <button class="btn btn-secondary btn-sm" onclick="verFamiliares('${u.id}', '${(u.full_name||'').replace(/'/g,'')}')">
+          <svg viewBox="0 0 24 24"><path d="M16 11c1.66 0 2.99-1.34 2.99-3S17.66 5 16 5c-1.66 0-3 1.34-3 3s1.34 3 3 3zm-8 0c1.66 0 2.99-1.34 2.99-3S9.66 5 8 5C6.34 5 5 6.34 5 8s1.34 3 3 3zm0 2c-2.33 0-7 1.17-7 3.5V19h14v-2.5c0-2.33-4.67-3.5-7-3.5zm8 0c-.29 0-.62.02-.97.05 1.16.84 1.97 1.97 1.97 3.45V19h6v-2.5c0-2.33-4.67-3.5-7-3.5z" fill="currentColor"/></svg>
+          Ver familiares ${familyCount > 0 ? `(${familyCount})` : ''}
+        </button>
+      </div>
+
+      <!-- Acciones -->
+      <div style="display:flex;gap:8px;flex-wrap:wrap;border-top:1px solid var(--gray-100);padding-top:12px">
+        <button class="btn btn-outline btn-sm" onclick="abrirEditarUsuario('${u.id}')">
+          <svg viewBox="0 0 24 24"><path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04c.39-.39.39-1.02 0-1.41l-2.34-2.34c-.39-.39-1.02-.39-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z" fill="currentColor"/></svg>
+          Editar datos
+        </button>
+        <button class="btn btn-sm ${isActive ? 'btn-danger' : 'btn-success'}" onclick="toggleActivarUsuario('${u.id}', ${isActive})">
+          <svg viewBox="0 0 24 24"><path d="${isActive
+            ? 'M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 14H9V8h2v8zm4 0h-2V8h2v8z'
+            : 'M8 5v14l11-7z'}" fill="currentColor"/></svg>
+          ${isActive ? 'Desactivar' : 'Activar'}
+        </button>
+      </div>
+    </div>
+  `;
+}
+
+async function toggleActivarUsuario(userId, currentlyActive) {
+  const nuevoEstado = !currentlyActive;
+  const accion = nuevoEstado ? 'activar' : 'desactivar';
+  if (!confirm(`¿Querés ${accion} este usuario?`)) return;
+
+  try {
+    const sb = getSupabase();
+    const { error } = await sb
+      .from('profiles')
+      .update({ active: nuevoEstado })
+      .eq('id', userId);
+    if (error) throw error;
+
+    // Actualizar en el array local
+    const idx = (window._gestionUsuarios || []).findIndex(u => u.id === userId);
+    if (idx !== -1) window._gestionUsuarios[idx].active = nuevoEstado;
+
+    showToast(`Usuario ${nuevoEstado ? 'activado' : 'desactivado'}`, nuevoEstado ? 'success' : 'info');
+    renderGestionUsuarios();
+  } catch {
+    showToast('Error al actualizar estado', 'error');
+  }
+}
+
+async function verFamiliares(userId, userName) {
+  openModal(`
+    <h2 class="modal-title">Familiares de ${userName}</h2>
+    <div class="loading-center"><div class="spinner"></div></div>
+  `);
+
+  try {
+    const members = await dbGetFamilyMembers(userId);
+    const content = document.getElementById('modal-content');
+
+    if (!members.length) {
+      content.innerHTML = `
+        <h2 class="modal-title">Familiares de ${userName}</h2>
+        ${emptyStateHTML('Sin familiares', 'Este usuario no tiene familiares registrados')}
+      `;
+      return;
+    }
+
+    content.innerHTML = `
+      <h2 class="modal-title">Familiares de ${userName}</h2>
+      <p class="modal-subtitle">${members.length} familiar${members.length > 1 ? 'es' : ''} registrado${members.length > 1 ? 's' : ''}</p>
+      <div style="display:flex;flex-direction:column;gap:10px;margin-top:12px">
+        ${members.map(m => {
+          const initials = m.name.split(' ').map(w=>w[0]).join('').slice(0,2).toUpperCase();
+          return `
+            <div style="display:flex;align-items:center;gap:12px;padding:12px;background:var(--gray-50);border-radius:10px;border:1px solid var(--gray-200)">
+              <div class="family-avatar">${initials}</div>
+              <div>
+                <div style="font-weight:700;font-size:15px">${m.name}</div>
+                <div style="font-size:12px;color:var(--gray-500)">DNI: ${m.dni || '—'} · Edad: ${m.age || '—'} años</div>
+              </div>
+            </div>
+          `;
+        }).join('')}
+      </div>
+    `;
+  } catch {
+    showToast('Error al cargar familiares', 'error');
+  }
+}
+
+function abrirEditarUsuario(userId) {
+  const u = (window._gestionUsuarios || []).find(u => u.id === userId);
+  if (!u) return;
+
+  openModal(`
+    <h2 class="modal-title">Editar Usuario</h2>
+    <p class="modal-subtitle">${u.email}</p>
+    <div id="edit-user-error" class="alert alert-error hidden"></div>
+    <div id="edit-user-success" class="alert alert-success hidden"></div>
+
+    <div class="form-group"><label>Nombre y Apellido</label><input type="text" id="eu-name" value="${u.full_name || ''}" /></div>
+    <div class="profile-info-row">
+      <div class="form-group"><label>DNI</label><input type="text" id="eu-dni" value="${u.dni || ''}" /></div>
+      <div class="form-group"><label>Fecha de nacimiento</label><input type="date" id="eu-birth" value="${u.birthdate || ''}" /></div>
+    </div>
+    <div class="form-group"><label>Obra Social</label><input type="text" id="eu-os" value="${u.obra_social || ''}" /></div>
+    <div class="profile-info-row">
+      <div class="form-group"><label>Plan</label><input type="text" id="eu-plan" value="${u.plan || ''}" /></div>
+      <div class="form-group"><label>N° Afiliado</label><input type="text" id="eu-afil" value="${u.nro_afiliado || ''}" /></div>
+    </div>
+    <div class="form-group"><label>Celular</label><input type="tel" id="eu-phone" value="${u.phone || ''}" /></div>
+
+    <button class="btn btn-primary btn-full mt-12" onclick="guardarEdicionUsuario('${userId}')">
+      <svg viewBox="0 0 24 24"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z" fill="currentColor"/></svg>
+      Guardar Cambios
+    </button>
+  `);
+}
+
+async function guardarEdicionUsuario(userId) {
+  const errEl = document.getElementById('edit-user-error');
+  const sucEl = document.getElementById('edit-user-success');
+
+  const updates = {
+    full_name: document.getElementById('eu-name')?.value?.trim(),
+    dni: document.getElementById('eu-dni')?.value?.trim(),
+    birthdate: document.getElementById('eu-birth')?.value || null,
+    obra_social: document.getElementById('eu-os')?.value?.trim(),
+    plan: document.getElementById('eu-plan')?.value?.trim(),
+    nro_afiliado: document.getElementById('eu-afil')?.value?.trim(),
+    phone: document.getElementById('eu-phone')?.value?.trim(),
+  };
+
+  try {
+    const sb = getSupabase();
+    const { error } = await sb.from('profiles').update(updates).eq('id', userId);
+    if (error) throw error;
+
+    // Actualizar en array local
+    const idx = (window._gestionUsuarios || []).findIndex(u => u.id === userId);
+    if (idx !== -1) window._gestionUsuarios[idx] = { ...window._gestionUsuarios[idx], ...updates };
+
+    errEl.classList.add('hidden');
+    showAlert(sucEl, '✓ Datos actualizados correctamente.');
+    setTimeout(() => {
+      closeModal();
+      renderGestionUsuarios();
+    }, 1200);
+  } catch {
+    showAlert(errEl, 'Error al guardar. Intentá nuevamente.');
   }
 }
