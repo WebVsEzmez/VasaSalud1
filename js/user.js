@@ -128,17 +128,40 @@ async function deleteFamiliar(id) {
 }
 
 // ===== PEDIR RECETA =====
-function renderPedirReceta() {
+async function renderPedirReceta() {
   const container = document.getElementById('user-sections');
+
+  // Cargar familiares del usuario
+  let familiares = [];
+  try { familiares = await dbGetFamilyMembers(currentUser.id); } catch {}
+
+  // Selector de para quién solo si tiene familiares
+  const paraquienHTML = familiares.length > 0 ? `
+    <div class="form-group">
+      <label>¿Para quién es la receta?</label>
+      <div class="paraquien-options" id="paraquien-options">
+        <button type="button" class="paraquien-btn active" data-val="yo" onclick="selectParaquien(this)">
+          <svg viewBox="0 0 24 24"><path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z" fill="currentColor"/></svg>
+          Para mí
+        </button>
+        ${familiares.map(f => `
+          <button type="button" class="paraquien-btn" data-val="${f.name}" onclick="selectParaquien(this)">
+            <svg viewBox="0 0 24 24"><path d="M16 11c1.66 0 2.99-1.34 2.99-3S17.66 5 16 5c-1.66 0-3 1.34-3 3s1.34 3 3 3zm-8 0c1.66 0 2.99-1.34 2.99-3S9.66 5 8 5C6.34 5 5 6.34 5 8s1.34 3 3 3zm0 2c-2.33 0-7 1.17-7 3.5V19h14v-2.5c0-2.33-4.67-3.5-7-3.5zm8 0c-.29 0-.62.02-.97.05 1.16.84 1.97 1.97 1.97 3.45V19h6v-2.5c0-2.33-4.67-3.5-7-3.5z" fill="currentColor"/></svg>
+            ${f.name}
+          </button>
+        `).join('')}
+      </div>
+    </div>
+  ` : '';
+
   container.innerHTML = sectionPanelHTML('Pedir Receta', 'Indicá la medicación que necesitás', `
     <div id="receta-error" class="alert alert-error hidden"></div>
     <div id="receta-success" class="alert alert-success hidden"></div>
-    <div class="form-group"><label>Nombre del Fármaco</label><input type="text" id="rec-farmaco" placeholder="Ej: Ibuprofeno" /></div>
-    <div class="profile-info-row">
-      <div class="form-group"><label>Dosis</label><input type="text" id="rec-dosis" placeholder="Ej: 400mg" /></div>
-      <div class="form-group"><label>Cantidad</label><input type="text" id="rec-cantidad" placeholder="Ej: 20 comprimidos" /></div>
+    ${paraquienHTML}
+    <div class="form-group">
+      <label>Nombre del Fármaco</label>
+      <input type="text" id="rec-farmaco" placeholder="Ej: Ibuprofeno" />
     </div>
-    <div class="form-group"><label>Observaciones (opcional)</label><textarea id="rec-obs" placeholder="Indicaciones adicionales..."></textarea></div>
     <button class="btn btn-primary btn-full mt-8" onclick="enviarReceta()">
       <svg viewBox="0 0 24 24"><path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z" fill="currentColor"/></svg>
       Enviar Solicitud
@@ -146,16 +169,23 @@ function renderPedirReceta() {
   `);
 }
 
+function selectParaquien(btn) {
+  document.querySelectorAll('.paraquien-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+}
+
 async function enviarReceta() {
   const farmaco = document.getElementById('rec-farmaco')?.value?.trim();
-  const dosis = document.getElementById('rec-dosis')?.value?.trim();
-  const cantidad = document.getElementById('rec-cantidad')?.value?.trim();
-  const obs = document.getElementById('rec-obs')?.value?.trim();
   const errEl = document.getElementById('receta-error');
   const sucEl = document.getElementById('receta-success');
+  const activeBtn = document.querySelector('.paraquien-btn.active');
+  const paraquien = activeBtn ? activeBtn.dataset.val : 'yo';
+  const paraquienLabel = paraquien === 'yo'
+    ? (currentProfile?.full_name || 'el trabajador')
+    : paraquien;
 
-  if (!farmaco || !dosis || !cantidad) {
-    showAlert(errEl, 'Completá fármaco, dosis y cantidad.');
+  if (!farmaco) {
+    showAlert(errEl, 'Ingresá el nombre del fármaco.');
     return;
   }
 
@@ -164,14 +194,16 @@ async function enviarReceta() {
       user_id: currentUser.id,
       type: 'receta',
       status: 'pending',
-      details: JSON.stringify({ farmaco, dosis, cantidad, observaciones: obs }),
-      title: `Receta: ${farmaco} ${dosis}`
+      details: JSON.stringify({ farmaco, para: paraquienLabel }),
+      title: `Receta: ${farmaco} — Para: ${paraquienLabel}`
     });
     errEl.classList.add('hidden');
     showAlert(sucEl, '✓ Solicitud enviada. El médico responderá a la brevedad.');
-    ['rec-farmaco','rec-dosis','rec-cantidad','rec-obs'].forEach(id => {
-      const el = document.getElementById(id);
-      if (el) el.value = '';
+    const el = document.getElementById('rec-farmaco');
+    if (el) el.value = '';
+    // Reset selector
+    document.querySelectorAll('.paraquien-btn').forEach((b, i) => {
+      b.classList.toggle('active', i === 0);
     });
     updateSolicitudesBadge();
   } catch (e) {
@@ -182,11 +214,13 @@ async function enviarReceta() {
 // ===== PEDIR ORDEN =====
 function renderPedirOrden() {
   const container = document.getElementById('user-sections');
-  container.innerHTML = sectionPanelHTML('Pedir Orden Médica', 'Indicá qué orden necesitás', `
+  container.innerHTML = sectionPanelHTML('Pedir Orden Médica', 'Describí la orden que necesitás', `
     <div id="orden-error" class="alert alert-error hidden"></div>
     <div id="orden-success" class="alert alert-success hidden"></div>
-    <div class="form-group"><label>Detalle de la Orden</label><textarea id="ord-detalle" rows="4" placeholder="Describí qué orden médica necesitás (estudios, derivaciones, etc.)..."></textarea></div>
-    <div class="form-group"><label>Observaciones adicionales (opcional)</label><textarea id="ord-obs" placeholder="Más información..."></textarea></div>
+    <div class="form-group">
+      <label>Detalle de la Orden</label>
+      <textarea id="ord-detalle" rows="4" placeholder="Describí qué orden médica necesitás (estudios, derivaciones, etc.)..."></textarea>
+    </div>
     <button class="btn btn-primary btn-full mt-8" onclick="enviarOrden()">
       <svg viewBox="0 0 24 24"><path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z" fill="currentColor"/></svg>
       Enviar Solicitud
@@ -196,7 +230,6 @@ function renderPedirOrden() {
 
 async function enviarOrden() {
   const detalle = document.getElementById('ord-detalle')?.value?.trim();
-  const obs = document.getElementById('ord-obs')?.value?.trim();
   const errEl = document.getElementById('orden-error');
   const sucEl = document.getElementById('orden-success');
 
@@ -207,13 +240,12 @@ async function enviarOrden() {
       user_id: currentUser.id,
       type: 'orden',
       status: 'pending',
-      details: JSON.stringify({ detalle, observaciones: obs }),
+      details: JSON.stringify({ detalle }),
       title: 'Orden Médica'
     });
     errEl.classList.add('hidden');
     showAlert(sucEl, '✓ Solicitud enviada. El médico responderá a la brevedad.');
     document.getElementById('ord-detalle').value = '';
-    if (document.getElementById('ord-obs')) document.getElementById('ord-obs').value = '';
     updateSolicitudesBadge();
   } catch (e) {
     showAlert(errEl, 'Error al enviar. Intentá nuevamente.');

@@ -53,7 +53,7 @@ function adminRequestCardHTML(r) {
   }[r.type] || '';
 
   let detailText = '';
-  if (r.type === 'receta') detailText = `<b>Fármaco:</b> ${details.farmaco || '—'} | <b>Dosis:</b> ${details.dosis || '—'} | <b>Cantidad:</b> ${details.cantidad || '—'}${details.observaciones ? `<br><b>Obs:</b> ${details.observaciones}` : ''}`;
+  if (r.type === 'receta') detailText = `<b>Fármaco:</b> ${details.farmaco || '—'}${details.para ? ` | <b>Para:</b> ${details.para}` : ''}${details.dosis ? ` | <b>Dosis:</b> ${details.dosis}` : ''}${details.cantidad ? ` | <b>Cantidad:</b> ${details.cantidad}` : ''}`;
   if (r.type === 'orden') detailText = `<b>Detalle:</b> ${details.detalle || '—'}${details.observaciones ? `<br><b>Obs:</b> ${details.observaciones}` : ''}`;
   if (r.type === 'transcripcion') {
     detailText = details.observaciones ? `<b>Obs:</b> ${details.observaciones}` : 'Sin observaciones';

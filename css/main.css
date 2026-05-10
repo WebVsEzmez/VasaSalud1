@@ -1320,3 +1320,40 @@ body {
     grid-template-columns: repeat(4, 1fr);
   }
 }
+
+/* === PARA QUIÉN SELECTOR === */
+.paraquien-options {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 4px;
+}
+
+.paraquien-btn {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 10px 16px;
+  border: 2px solid var(--gray-200);
+  border-radius: 40px;
+  background: var(--white);
+  font-family: var(--font-heading);
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--gray-600);
+  cursor: pointer;
+  transition: all var(--transition);
+}
+.paraquien-btn svg { width: 16px; height: 16px; flex-shrink: 0; }
+.paraquien-btn:hover {
+  border-color: var(--teal);
+  color: var(--teal-dark);
+  background: var(--teal-xlight);
+}
+.paraquien-btn.active {
+  border-color: var(--teal);
+  background: linear-gradient(135deg, var(--teal) 0%, var(--teal-dark) 100%);
+  color: white;
+  box-shadow: 0 4px 12px rgba(0,180,200,0.3);
+}
+.paraquien-btn.active svg { color: white; }
