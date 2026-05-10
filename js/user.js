@@ -260,43 +260,170 @@ function renderTranscripcion() {
   container.innerHTML = sectionPanelHTML('Transcripción de Receta', 'Subí la foto de tu receta', `
     <div id="trans-error" class="alert alert-error hidden"></div>
     <div id="trans-success" class="alert alert-success hidden"></div>
-    <div class="upload-area" onclick="document.getElementById('trans-file').click()">
+
+    <div class="upload-area" id="upload-area" onclick="document.getElementById('trans-file').click()">
       <svg viewBox="0 0 24 24"><path d="M19.35 10.04C18.67 6.59 15.64 4 12 4 9.11 4 6.6 5.64 5.35 8.04 2.34 8.36 0 10.91 0 14c0 3.31 2.69 6 6 6h13c2.76 0 5-2.24 5-5 0-2.64-2.05-4.78-4.65-4.96zM14 13v4h-4v-4H7l5-5 5 5h-3z" fill="currentColor"/></svg>
       <p>Tocá para seleccionar una foto</p>
-      <small>JPG, PNG, PDF · Máx. 5 MB</small>
+      <small>JPG, PNG · Se comprime automáticamente</small>
     </div>
-    <input type="file" id="trans-file" accept="image/*,.pdf" style="display:none" onchange="previewTranscripcion(this)" />
-    <div id="trans-preview" class="upload-preview" style="display:none"></div>
-    <div class="form-group mt-12"><label>Observaciones (opcional)</label><textarea id="trans-obs" placeholder="Alguna aclaración sobre la receta..."></textarea></div>
-    <button class="btn btn-primary btn-full mt-8" onclick="enviarTranscripcion()">
+    <input type="file" id="trans-file" accept="image/*" style="display:none" onchange="previewTranscripcion(this)" />
+
+    <div id="trans-preview" style="display:none;margin-top:12px">
+      <div style="position:relative;border-radius:12px;overflow:hidden;background:var(--gray-100)">
+        <img id="trans-preview-img" style="width:100%;max-height:220px;object-fit:cover;display:block" />
+        <button onclick="quitarFoto()" style="position:absolute;top:8px;right:8px;background:rgba(0,0,0,0.55);border:none;color:white;width:30px;height:30px;border-radius:50%;cursor:pointer;font-size:16px;display:flex;align-items:center;justify-content:center">×</button>
+      </div>
+      <div id="trans-file-info" style="font-size:12px;color:var(--gray-400);margin-top:6px;text-align:center"></div>
+    </div>
+
+    <div class="form-group mt-12">
+      <label>Observaciones (opcional)</label>
+      <textarea id="trans-obs" placeholder="Alguna aclaración sobre la receta..."></textarea>
+    </div>
+
+    <button class="btn btn-primary btn-full mt-8" id="trans-btn" onclick="enviarTranscripcion()">
       <svg viewBox="0 0 24 24"><path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z" fill="currentColor"/></svg>
       Enviar Transcripción
     </button>
   `);
 }
 
-function previewTranscripcion(input) {
+// Comprimir imagen antes de guardarla
+function comprimirImagen(file, maxWidth = 1200, quality = 0.75) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = e => {
+      const img = new Image();
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        let { width, height } = img;
+
+        // Escalar si es más ancha que maxWidth
+        if (width > maxWidth) {
+          height = Math.round((height * maxWidth) / width);
+          width = maxWidth;
+        }
+
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(img, 0, 0, width, height);
+
+        canvas.toBlob(
+          blob => {
+            if (!blob) { reject(new Error('Error al comprimir')); return; }
+            // Crear nuevo File con el blob comprimido
+            const compressed = new File([blob], file.name.replace(/\.[^.]+$/, '.jpg'), {
+              type: 'image/jpeg',
+              lastModified: Date.now()
+            });
+            resolve(compressed);
+          },
+          'image/jpeg',
+          quality
+        );
+      };
+      img.onerror = reject;
+      img.src = e.target.result;
+    };
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
+  });
+}
+
+function formatBytes(bytes) {
+  if (bytes < 1024) return bytes + ' B';
+  if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(0) + ' KB';
+  return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
+}
+
+async function previewTranscripcion(input) {
   if (!input.files?.[0]) return;
   const file = input.files[0];
-  transcripcionFile = file;
 
-  if (file.size > 5 * 1024 * 1024) {
-    showToast('El archivo supera los 5 MB', 'error');
-    transcripcionFile = null;
+  // Solo imágenes
+  if (!file.type.startsWith('image/')) {
+    showToast('Solo se aceptan imágenes (JPG, PNG)', 'error');
     return;
   }
 
-  const preview = document.getElementById('trans-preview');
-  if (file.type.startsWith('image/')) {
+  if (file.size > 20 * 1024 * 1024) {
+    showToast('La imagen supera los 20 MB', 'error');
+    return;
+  }
+
+  // Mostrar estado de compresión
+  const uploadArea = document.getElementById('upload-area');
+  if (uploadArea) {
+    uploadArea.innerHTML = `
+      <div class="spinner" style="width:24px;height:24px;margin:0 auto 8px"></div>
+      <p style="font-size:13px;color:var(--gray-500)">Comprimiendo imagen...</p>
+    `;
+  }
+
+  try {
+    const originalSize = file.size;
+    const compressed = await comprimirImagen(file, 1200, 0.72);
+    const compressedSize = compressed.size;
+    const saving = Math.round((1 - compressedSize / originalSize) * 100);
+
+    transcripcionFile = compressed;
+
+    // Mostrar preview
     const reader = new FileReader();
     reader.onload = e => {
-      preview.style.display = 'block';
-      preview.innerHTML = `<img src="${e.target.result}" alt="Vista previa" />`;
+      const preview = document.getElementById('trans-preview');
+      const previewImg = document.getElementById('trans-preview-img');
+      const fileInfo = document.getElementById('trans-file-info');
+
+      if (preview) preview.style.display = 'block';
+      if (previewImg) previewImg.src = e.target.result;
+      if (fileInfo) {
+        fileInfo.innerHTML = saving > 5
+          ? `✅ Comprimida: ${formatBytes(originalSize)} → <b>${formatBytes(compressedSize)}</b> (−${saving}% menos espacio)`
+          : `📷 ${formatBytes(compressedSize)}`;
+      }
+
+      // Restaurar upload area
+      if (uploadArea) {
+        uploadArea.innerHTML = `
+          <svg viewBox="0 0 24 24" style="width:24px;height:24px;color:var(--teal)"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z" fill="currentColor"/></svg>
+          <p style="color:var(--teal);font-weight:700">Foto cargada</p>
+          <small>Tocá para cambiarla</small>
+        `;
+      }
+    };
+    reader.readAsDataURL(compressed);
+
+  } catch (err) {
+    // Si falla la compresión, usar original
+    transcripcionFile = file;
+    showToast('Se usará la imagen original', 'info');
+    const preview = document.getElementById('trans-preview');
+    const reader = new FileReader();
+    reader.onload = e => {
+      if (preview) {
+        preview.style.display = 'block';
+        document.getElementById('trans-preview-img').src = e.target.result;
+      }
     };
     reader.readAsDataURL(file);
-  } else {
-    preview.style.display = 'block';
-    preview.innerHTML = `<div style="padding:12px;background:var(--gray-100);border-radius:8px;font-size:14px;color:var(--gray-700)">📄 ${file.name}</div>`;
+  }
+}
+
+function quitarFoto() {
+  transcripcionFile = null;
+  const preview = document.getElementById('trans-preview');
+  if (preview) preview.style.display = 'none';
+  const fileInput = document.getElementById('trans-file');
+  if (fileInput) fileInput.value = '';
+  const uploadArea = document.getElementById('upload-area');
+  if (uploadArea) {
+    uploadArea.innerHTML = `
+      <svg viewBox="0 0 24 24"><path d="M19.35 10.04C18.67 6.59 15.64 4 12 4 9.11 4 6.6 5.64 5.35 8.04 2.34 8.36 0 10.91 0 14c0 3.31 2.69 6 6 6h13c2.76 0 5-2.24 5-5 0-2.64-2.05-4.78-4.65-4.96zM14 13v4h-4v-4H7l5-5 5 5h-3z" fill="currentColor"/></svg>
+      <p>Tocá para seleccionar una foto</p>
+      <small>JPG, PNG · Se comprime automáticamente</small>
+    `;
   }
 }
 
@@ -306,19 +433,21 @@ async function enviarTranscripcion() {
   const sucEl = document.getElementById('trans-success');
 
   if (!transcripcionFile) {
-    showAlert(errEl, 'Seleccioná una imagen o PDF de tu receta.');
+    showAlert(errEl, 'Seleccioná una foto de tu receta.');
     return;
   }
 
-  const btn = document.querySelector('#user-sections .btn-primary');
-  if (btn) { btn.disabled = true; btn.textContent = 'Subiendo...'; }
+  const btn = document.getElementById('trans-btn');
+  if (btn) {
+    btn.disabled = true;
+    btn.innerHTML = '<div class="spinner" style="width:18px;height:18px;margin:0;border-width:2px"></div> Subiendo...';
+  }
 
   try {
     let fileUrl = null;
     try {
       fileUrl = await dbUploadTranscription(transcripcionFile, currentUser.id);
-    } catch (uploadErr) {
-      // If storage not configured, save without URL
+    } catch {
       fileUrl = '[archivo adjunto]';
     }
 
@@ -326,20 +455,28 @@ async function enviarTranscripcion() {
       user_id: currentUser.id,
       type: 'transcripcion',
       status: 'pending',
-      details: JSON.stringify({ observaciones: obs, file_url: fileUrl, file_name: transcripcionFile.name }),
+      details: JSON.stringify({
+        observaciones: obs,
+        file_url: fileUrl,
+        file_name: transcripcionFile.name,
+        file_size: formatBytes(transcripcionFile.size)
+      }),
       title: 'Transcripción de Receta'
     });
 
     errEl.classList.add('hidden');
     showAlert(sucEl, '✓ Transcripción enviada correctamente.');
     transcripcionFile = null;
-    document.getElementById('trans-preview').style.display = 'none';
+    quitarFoto();
     if (document.getElementById('trans-obs')) document.getElementById('trans-obs').value = '';
     updateSolicitudesBadge();
   } catch (e) {
     showAlert(errEl, 'Error al enviar. Intentá nuevamente.');
   } finally {
-    if (btn) { btn.disabled = false; }
+    if (btn) {
+      btn.disabled = false;
+      btn.innerHTML = `<svg viewBox="0 0 24 24"><path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z" fill="currentColor"/></svg> Enviar Transcripción`;
+    }
   }
 }
 
