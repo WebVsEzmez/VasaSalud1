@@ -196,16 +196,39 @@ async function dbGetAllProfilesWithRequests() {
 
 async function dbDeleteTranscripcionFile(fileUrl) {
   const sb = getSupabase();
-  // Extraer el path del archivo desde la URL pública
-  // URL formato: https://xxx.supabase.co/storage/v1/object/public/vasasalud/transcriptions/...
-  const marker = '/object/public/vasasalud/';
-  const idx = fileUrl.indexOf(marker);
-  if (idx === -1) throw new Error('URL de storage no reconocida');
-  const filePath = fileUrl.substring(idx + marker.length);
 
-  const { error } = await sb.storage
+  // La URL pública de Supabase Storage tiene este formato:
+  // https://ID.supabase.co/storage/v1/object/public/vasasalud/transcriptions/USER_ID/FILENAME.jpg
+  // El path que necesita .remove() es solo la parte DESPUÉS del bucket:
+  // transcriptions/USER_ID/FILENAME.jpg
+
+  let filePath = null;
+
+  // Intentar extraer el path con varios patrones posibles
+  const patterns = [
+    '/object/public/vasasalud/',
+    '/storage/v1/object/public/vasasalud/',
+  ];
+
+  for (const pattern of patterns) {
+    const idx = fileUrl.indexOf(pattern);
+    if (idx !== -1) {
+      filePath = decodeURIComponent(fileUrl.substring(idx + pattern.length));
+      break;
+    }
+  }
+
+  if (!filePath) {
+    console.error('No se pudo extraer path de:', fileUrl);
+    throw new Error('URL de storage no reconocida');
+  }
+
+  console.log('Borrando archivo en path:', filePath);
+
+  const { data, error } = await sb.storage
     .from('vasasalud')
     .remove([filePath]);
 
+  console.log('Resultado borrado:', data, error);
   if (error) throw error;
 }
